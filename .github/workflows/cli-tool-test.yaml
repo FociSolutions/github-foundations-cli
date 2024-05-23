@@ -2,9 +2,8 @@ name: Gh Foundations CLI Tool Test
 
 on:
   pull_request:
-defaults:
-  run:
-    working-directory: ./gh_foundations
+  workflow_dispatch:
+    
 jobs:
   build:
 
@@ -30,4 +29,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Go-results-${{ matrix.go-version }}
-          path: ./gh_foundations/TestResults-${{ matrix.go-version }}.json
+          path: ./TestResults-${{ matrix.go-version }}.json
