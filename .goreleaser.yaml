@@ -44,3 +44,22 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
+
+release:
+  mode: replace
+  replace_existing_artifacts: true
+  # Header for the release body.
+  #
+  # Templates: allowed
+  header: |
+    ## GitHub Foundations CLI ({{ .Date }})
+
+    The latest release of the GitHub Foundations CLI.
+
+  # Footer for the release body.
+  #
+  # Templates: allowed
+  footer: |
+    ## Thanks
+
+    Changes for tag: {{ .Tag }}!
