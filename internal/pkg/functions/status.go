@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/gruntwork-io/terragrunt/config"
@@ -26,28 +27,6 @@ func findOrgsFromFilenames(hclFiles []string) map[string][]string {
         names[orgName] = append(names[orgName], file)
     }
     return names
-}
-
-// Given a path, which may be relative return the absolute path
-func getAbsolutePath(path string) (string, error) {
-
-	oldWd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	defer os.Chdir(oldWd)
-
-	err = os.Chdir(path)
-	if err != nil {
-		return "", err
-	}
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	return cwd, nil
 }
 
 // Given a repository struct returned by the HCL parser, return a githubfoundations.RepositoryInput
@@ -113,7 +92,7 @@ func findOrgFiles(rootDir string, options *options.TerragruntOptions) (map[strin
 // List all of the repositories managed by the tool
 func FindManagedRepos(ctx context.Context, reposDir string) (status.OrgSet, error) {
 	options := getOptions()
-	
+
 	orgFiles, err := findOrgFiles(reposDir, options)
 	if err != nil {
 		log.Fatalf("Error in findOrgFiles: %s", err)
@@ -121,9 +100,9 @@ func FindManagedRepos(ctx context.Context, reposDir string) (status.OrgSet, erro
 	}
 
 	// Get the absolute path of the root directory
-	absRootPath, err := getAbsolutePath(reposDir)
+	absRootPath, err := filepath.Abs(reposDir)
 	if err != nil {
-		log.Fatalf("Error in getAbsolutePath: %s", err)
+		log.Fatalf("Error in filepath.Abs: %s", err)
         return status.OrgSet{}, err
 	}
 
@@ -141,7 +120,7 @@ func FindManagedRepos(ctx context.Context, reposDir string) (status.OrgSet, erro
 			// If the file name ends with `../repositories/terragrunt.hcl`,
 			// then it is a repository file
 			if strings.HasSuffix(file, "repositories/terragrunt.hcl") {
-				
+
 				// Replace relative path with absolute path
 				file = strings.Replace(file, reposDir, absRootPath, 1)
 
@@ -151,13 +130,13 @@ func FindManagedRepos(ctx context.Context, reposDir string) (status.OrgSet, erro
 				parts := strings.Split(file, "/")
 				project := parts[len(parts)-4]
 
-				// Parse the HCL file				
+				// Parse the HCL file
 				options.TerragruntConfigPath = file
 				options.WorkingDir = path.Dir(file)
 				parseCtx := config.NewParsingContext(ctx, options)
 				parser := hclparse.NewParser()
 				parsedHCL, err := parser.ParseFromFile(file)
-				
+
 				if err != nil {
 					log.Fatalf(`Error in hclparse.NewParser().ParseFromFile: %s`, err)
 					return orgSet, err
