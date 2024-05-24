@@ -4,6 +4,7 @@ import (
 	"gh_foundations/cmd/check"
 	"gh_foundations/cmd/gen"
 	import_cmd "gh_foundations/cmd/import"
+	"gh_foundations/cmd/list"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -12,13 +13,9 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "gh_foundations",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "The GitHub Foundations CLI tool.",
+	Long: `The GitHub Foundations CLI tool is a tool to manage GitHub resources
+	and to read the state of the resources managed by the tool.\n`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
@@ -47,4 +44,5 @@ func init() {
 	rootCmd.AddCommand(import_cmd.ImportCmd)
 	rootCmd.AddCommand(gen.GenCmd)
 	rootCmd.AddCommand(check.CheckCmd)
+	rootCmd.AddCommand(list.ListCmd)
 }
