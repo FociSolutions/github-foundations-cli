@@ -36,7 +36,7 @@ var ReposCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("Error in findManagedRepos: %s", err)
 		}
-		
+
 		if ghas {
 			orgSet = orgSet.WithGHASEnabled()
 			log.Printf("Found %d repositories with GHAS enabled\n", len(flattenRepos(orgSet)))
@@ -50,7 +50,11 @@ var ReposCmd = &cobra.Command{
 				repos = fmt.Sprintf("['%s'", repo)
 			}
 		}
-		repos = fmt.Sprintf("%s]", repos)
+		if repos != "" {
+			repos = fmt.Sprintf("%s]", repos)
+		} else {
+			repos = "[]"
+		}
 
 		fmt.Println(repos)
 	},

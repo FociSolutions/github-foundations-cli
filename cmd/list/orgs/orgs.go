@@ -24,7 +24,7 @@ var OrgsCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		
+
 		orgsDir := args[0]
 
 		orgs, err := functions.FindManagedOrgs(orgsDir)
@@ -42,7 +42,11 @@ var OrgsCmd = &cobra.Command{
 				orgOut = fmt.Sprintf("['%s'", org)
 			}
 		}
-		orgOut = fmt.Sprintf("%s]", orgOut)
+		if orgOut != "" {
+			orgOut = fmt.Sprintf("%s]", orgOut)
+		} else {
+			orgOut = "[]"
+		}
 
 		fmt.Println(orgOut)
 
