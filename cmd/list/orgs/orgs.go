@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"gh_foundations/internal/pkg/functions"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -33,19 +34,10 @@ var OrgsCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var orgOut string
-		orgOut = ""
-		for _, org := range orgs {
-			if orgOut != "" {
-				orgOut = fmt.Sprintf("%s, '%s'", orgOut, org)
-			} else {
-				orgOut = fmt.Sprintf("['%s'", org)
-			}
-		}
-		if orgOut != "" {
-			orgOut = fmt.Sprintf("%s]", orgOut)
-		} else {
-			orgOut = "[]"
+		var orgOut string = "[]"
+
+		if len(orgs) > 0 {
+			orgOut = fmt.Sprintf("['%s']", strings.Join(orgs, "', '"))
 		}
 
 		fmt.Println(orgOut)
