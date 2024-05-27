@@ -121,8 +121,10 @@ func FindManagedRepos(ctx context.Context, reposDir string) (status.OrgSet, erro
 			// then it is a repository file
 			if strings.HasSuffix(file, "repositories/terragrunt.hcl") {
 
+				// Strip the trailing / from the reposDir
+				replaceDir := strings.TrimSuffix(reposDir, "/")
 				// Replace relative path with absolute path
-				file = strings.Replace(file, reposDir, absRootPath, 1)
+				file = strings.Replace(file, replaceDir, absRootPath, 1)
 
 				log.Printf("Working on file: %s\n", file)
 
