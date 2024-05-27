@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"gh_foundations/internal/pkg/functions"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -24,7 +25,7 @@ var OrgsCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		
+
 		orgsDir := args[0]
 
 		orgs, err := functions.FindManagedOrgs(orgsDir)
@@ -33,16 +34,11 @@ var OrgsCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var orgOut string
-		orgOut = ""
-		for _, org := range orgs {
-			if orgOut != "" {
-				orgOut = fmt.Sprintf("%s, '%s'", orgOut, org)
-			} else {
-				orgOut = fmt.Sprintf("['%s'", org)
-			}
+		var orgOut string = "[]"
+
+		if len(orgs) > 0 {
+			orgOut = fmt.Sprintf("['%s']", strings.Join(orgs, "', '"))
 		}
-		orgOut = fmt.Sprintf("%s]", orgOut)
 
 		fmt.Println(orgOut)
 

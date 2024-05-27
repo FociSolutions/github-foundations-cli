@@ -10,6 +10,7 @@ import (
 	"gh_foundations/internal/pkg/types/status"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -36,21 +37,19 @@ var ReposCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("Error in findManagedRepos: %s", err)
 		}
-		
+
+		repoList := flattenRepos(orgSet)
+
 		if ghas {
 			orgSet = orgSet.WithGHASEnabled()
-			log.Printf("Found %d repositories with GHAS enabled\n", len(flattenRepos(orgSet)))
+			repoList = flattenRepos(orgSet)
+			log.Printf("Found %d repositories with GHAS enabled\n", len(repoList))
 		}
-		var repos string
-		repos = ""
-		for _, repo := range flattenRepos(orgSet) {
-			if repos != "" {
-				repos = fmt.Sprintf("%s, '%s'", repos, repo)
-			} else {
-				repos = fmt.Sprintf("['%s'", repo)
-			}
+
+		repos := "[]"
+		if len(repoList) > 0 {
+			repos = fmt.Sprintf("['%s']", strings.Join(repoList, "', '"))
 		}
-		repos = fmt.Sprintf("%s]", repos)
 
 		fmt.Println(repos)
 	},
