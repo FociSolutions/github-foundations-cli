@@ -77,10 +77,23 @@ func FindManagedOrgs(orgsDir string) ([]string, error) {
 }
 
 // List all of the organizations + repository configs managed by the tool
-func findOrgFiles(rootDir string, options *options.TerragruntOptions) (map[string][]string, error) {
+func findOrgFiles(rootDir string) (map[string][]string, error) {
 
 	// Get the list of HCL files in the root directory
-	hclFiles, err := config.FindConfigFilesInPath(rootDir, options)
+	// hclFiles, err := config.FindConfigFilesInPath(rootDir, options)
+	var hclFiles []string
+	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// if the file ends with "repositories/terragrunt.hcl", then it is a repository fil
+		if strings.HasSuffix(path, "repositories/terragrunt.hcl") {
+			hclFiles = append(hclFiles, path)
+		}
+
+		return nil
+	})
     if err != nil {
         return nil, err
     }
@@ -93,7 +106,7 @@ func findOrgFiles(rootDir string, options *options.TerragruntOptions) (map[strin
 func FindManagedRepos(ctx context.Context, reposDir string) (status.OrgSet, error) {
 	options := getOptions()
 
-	orgFiles, err := findOrgFiles(reposDir, options)
+	orgFiles, err := findOrgFiles(reposDir)
 	if err != nil {
 		log.Fatalf("Error in findOrgFiles: %s", err)
         return status.OrgSet{}, err

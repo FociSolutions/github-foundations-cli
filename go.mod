@@ -5,6 +5,8 @@ go 1.21.0
 require (
 	github.com/charmbracelet/bubbletea v0.25.0
 	github.com/charmbracelet/lipgloss v0.10.0
+	github.com/gruntwork-io/terragrunt v0.58.9
+	github.com/mitchellh/mapstructure v1.5.0
 	github.com/spf13/afero v1.11.0
 	github.com/spf13/cobra v1.8.0
 )
@@ -94,7 +96,6 @@ require (
 	github.com/gruntwork-io/boilerplate v0.5.11 // indirect
 	github.com/gruntwork-io/go-commons v0.17.1 // indirect
 	github.com/gruntwork-io/gruntwork-cli v0.7.0 // indirect
-	github.com/gruntwork-io/terragrunt v0.58.9 // indirect
 	github.com/gruntwork-io/terratest v0.41.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -143,7 +144,6 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
-	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/panicwrap v1.0.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/muesli/ansi v0.0.0-20211018074035-2e021307bc4b // indirect
