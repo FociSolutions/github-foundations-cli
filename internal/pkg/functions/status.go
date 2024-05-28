@@ -50,6 +50,7 @@ func GetRepositoryInput(repo status.Repository) githubfoundations.RepositoryInpu
 // Setup the terragrunt options with defaults
 func getOptions() *options.TerragruntOptions {
 	tgOptions := options.NewTerragruntOptions()
+	tgOptions.IgnoreExternalDependencies = true
 	tgOptions.Env = map[string]string{
 		"GCP_SECRET_MANAGER_PROJECT": os.Getenv("GCP_SECRET_MANAGER_PROJECT"),
 		"GCP_TF_STATE_BUCKET_PROJECT": os.Getenv("GCP_SECRET_MANAGER_PROJECT"),
