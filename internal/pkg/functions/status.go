@@ -148,6 +148,7 @@ func FindManagedRepos(ctx context.Context, reposDir string) (status.OrgSet, erro
 				// Parse the HCL file
 				options.TerragruntConfigPath = file
 				options.WorkingDir = path.Dir(absRootPath)
+				options.OriginalTerragruntConfigPath = absRootPath + "/terragrunt.hcl"
 				parseCtx := config.NewParsingContext(ctx, options)
 				parser := hclparse.NewParser()
 				parsedHCL, err := parser.ParseFromFile(file)
