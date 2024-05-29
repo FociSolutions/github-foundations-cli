@@ -9,7 +9,6 @@ import (
 	"gh_foundations/internal/pkg/functions"
 	"gh_foundations/internal/pkg/types/status"
 	"log"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -31,9 +30,7 @@ var ReposCmd = &cobra.Command{
 
 		reposDir := args[0]
 
-		ctx := cmd.Context()
-
-		orgSet, err := functions.FindManagedRepos(ctx, reposDir)
+		orgSet, err := functions.FindManagedRepos(reposDir)
 		if err != nil {
 			log.Fatalf("Error in findManagedRepos: %s", err)
 		}
@@ -56,11 +53,6 @@ var ReposCmd = &cobra.Command{
 }
 
 func init() {
-	os.Setenv("GCP_SECRET_MANAGER_PROJECT", "blahblah")
-	os.Setenv("GCP_TF_STATE_BUCKET_PROJECT", "blahblahblah")
-	os.Setenv("GCP_TF_STATE_BUCKET_NAME", "blahblahblahblah")
-	os.Setenv("GCP_TF_STATE_BUCKET_LOCATION", "blahblahblahblahblah")
-
 	ReposCmd.Flags().BoolVarP(&ghas, "ghas", "g", false, "List repositories with GHAS enabled")
 }
 

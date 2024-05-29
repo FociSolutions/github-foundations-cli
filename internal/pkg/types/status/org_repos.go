@@ -36,7 +36,7 @@ type OrgSet struct {
 	OrgProjectSets 	map[string]OrgProjectSet
 }
 
-// Return only the names of the repositories managed by the tool 
+// Return only the names of the repositories managed by the tool
 // that have GHAS enabled
 func (org OrgSet) WithGHASEnabled() OrgSet {
 	reposWithGHAS := OrgSet{}
@@ -62,4 +62,23 @@ func (org OrgSet) WithGHASEnabled() OrgSet {
 		}
 	}
 	return reposWithGHAS
+}
+
+
+// Given a repository struct returned by the HCL parser, return a githubfoundations.RepositoryInput
+func (repo *Repository) GetRepositoryInput() githubfoundations.RepositoryInput {
+	return githubfoundations.RepositoryInput{
+		Name: repo.Name,
+		AdvanceSecurity: repo.AdvanceSecurity,
+		AllowAutoMerge: repo.AllowAutoMerge,
+		DefaultBranch: repo.DefaultBranch,
+		DeleteHeadBranchOnMerge: repo.DeleteHeadBranchOnMerge,
+		DependabotSecurityUpdates: repo.DependabotSecurityUpdates,
+		Description: repo.Description,
+		HasVulnerabilityAlerts: repo.HasVulnerabilityAlerts,
+		Homepage: repo.Homepage,
+		ProtectedBranches: repo.ProtectedBranches,
+		RequiresWebCommitSignOff: repo.RequiresWebCommitSignOff,
+		Topics: repo.Topics,
+	}
 }
