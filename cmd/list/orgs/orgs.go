@@ -46,8 +46,4 @@ var OrgsCmd = &cobra.Command{
 }
 
 func init() {
-	os.Setenv("GCP_SECRET_MANAGER_PROJECT", "blahblah")
-	os.Setenv("GCP_TF_STATE_BUCKET_PROJECT", "blahblahblah")
-	os.Setenv("GCP_TF_STATE_BUCKET_NAME", "blahblahblahblah")
-	os.Setenv("GCP_TF_STATE_BUCKET_LOCATION", "blahblahblahblahblah")
 }

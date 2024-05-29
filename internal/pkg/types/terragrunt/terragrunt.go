@@ -4,13 +4,19 @@ import (
 	"bytes"
 	"fmt"
 	"gh_foundations/internal/pkg/types"
+	"gh_foundations/internal/pkg/types/status"
 	"gh_foundations/internal/pkg/types/terraform_state"
 	v1_2 "gh_foundations/internal/pkg/types/terraform_state/v1.2"
 	"io"
+	"log"
 	"os/exec"
 	"path"
+	"regexp"
+	"strings"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/afero"
+	"github.com/spf13/viper"
 	"github.com/tidwall/gjson"
 )
 
@@ -35,6 +41,149 @@ type PlanFile struct {
 	ModulePath     string
 	ModuleDir      string
 	OutputFilePath string
+}
+
+type HCLFile struct {
+	Path string
+}
+
+func getRepository(repo map[string]interface{}) (status.Repository, error) {
+	var repository status.Repository
+
+	err := mapstructure.Decode(repo, &repository)
+	if err != nil {
+		log.Fatalf("Error in getInputsFromFile mapstructure.Decode: %s", err)
+		return repository, err
+	}
+
+	return repository, nil
+
+}
+
+
+// Given a repository map, returned by Viper, return a map of status.Repository
+func getRepositoryMap(repoList []map[string]interface{}) (map[string]status.Repository, error) {
+	repos := make(map[string]status.Repository)
+
+	for name, r := range repoList[0] {
+		details := r.([]map[string]interface{})
+		d := details[0]
+		repo, err := getRepository(d)
+		if err != nil {
+			log.Fatalf("Error in getRepositoryMap: %s", err)
+			return repos, err
+		}
+		repos[name] = repo
+	}
+	return repos, nil
+}
+
+func replaceLocals(contents string) string {
+	// The locals are in the form of locals = { key = value }
+	// Then, they are referred to as local.key in the configuration
+	// This function replaces the locals with their values
+
+	// Use regex to find the locals block
+	lre := regexp.MustCompile(`locals\s*{\n*((.*[^}])\n)+}`)
+	locals := lre.FindString(contents)
+
+	if locals == "" {
+		log.Printf("locals not found")
+		return contents
+	}
+
+    // Use regex to find the key-value pairs in the locals block
+    kvre := regexp.MustCompile(`(.*[^=])=(.*(?:(:?\n.*[^\]])*])*)`)
+    matches := kvre.FindAllStringSubmatch(locals, -1)
+
+	// Replace the locals with their values
+	for _, match := range matches {
+		key := strings.Trim(match[1], " ")
+		value := strings.Trim(match[2], " ")
+
+		contents = strings.ReplaceAll(contents, key, value)
+
+	}
+
+    return contents
+}
+
+// Given an HCL file, return the inputs
+func (h *HCLFile) GetInputsFromFile() (status.Inputs, error) {
+
+	var inputs status.Inputs
+
+	viper.SetConfigType("hcl")
+	viper.SetConfigFile(h.Path)
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			// Config file not found;
+			log.Fatalf(`GetInputsFromFile: config file not found: %s`, h.Path)
+			return inputs, err
+		} else if _, ok := err.(viper.ConfigParseError); ok {
+			// the viper library can't parse the "locals". Here's a workaround
+			// read in the file contents and replace the locals with their values
+			// then write the file to a temporary location and read it in
+			// again
+
+			// read in the file contents
+			contents, err := afero.ReadFile(fs, h.Path)
+			if err != nil {
+				log.Fatalf(`GetInputsFromFile: unable to read config file: %s`, h.Path)
+				return inputs, err
+			}
+			// replace the locals with their values
+			contents = []byte(replaceLocals(string(contents)))
+			// write the file to a temporary location and read it in again
+			tempPath := "/tmp/" + path.Base(h.Path)
+			err = afero.WriteFile(fs, tempPath, contents, 0644)
+			if err != nil {
+				log.Fatalf(`GetInputsFromFile: unable to write config file: %s`, h.Path)
+				return inputs, err
+			}
+			viper.SetConfigFile(tempPath)
+			viper.ReadInConfig()
+		} else {
+			// Config file was found but another error was produced
+			log.Fatalf(`GetInputsFromFile: config file found but another error was produced: %s`, h.Path)
+			return inputs, err
+		}
+	}
+
+	raw := viper.Get("inputs").([]map[string]interface{})
+	for key, input := range raw[0] {
+		switch key {
+			case "private_repositories":
+				repoList := input.([]map[string]interface{})
+				repos, err := getRepositoryMap(repoList)
+				if err != nil {
+					log.Fatalf("Error in getRepositoryMap: %s", err)
+					return inputs, err
+				}
+				inputs.PrivateRepositories = repos
+			case "public_repositories":
+				repoList := input.([]map[string]interface{})
+				repos, err := getRepositoryMap(repoList)
+				if err != nil {
+					log.Fatalf("Error in getRepositoryMap: %s", err)
+					return inputs, err
+				}
+				inputs.PublicRepositories = repos
+			case "default_repository_team_permissions":
+				permissions := make(map[string]string)
+				inputArr := input.([]map[string]interface{})
+				drtpsArr := inputArr[0]
+				for permission, value := range drtpsArr {
+					permissions[permission] = value.(string)
+				}
+				inputs.DefaultRepositoryTeamPermissions = permissions
+			default:
+				log.Fatalf("Unknown input: %s", key)
+				return inputs, nil
+		}
+	}
+
+	return inputs, nil
 }
 
 func NewTerragruntPlanFile(name string, modulePath string, moduleDir string, outputFilePath string) (*PlanFile, error) {

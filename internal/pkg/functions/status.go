@@ -1,19 +1,13 @@
 package functions
 
 import (
-	"context"
 	githubfoundations "gh_foundations/internal/pkg/types/github_foundations"
 	"gh_foundations/internal/pkg/types/status"
+	"gh_foundations/internal/pkg/types/terragrunt"
 	"log"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
-
-	"github.com/gruntwork-io/terragrunt/config"
-	"github.com/gruntwork-io/terragrunt/config/hclparse"
-	"github.com/gruntwork-io/terragrunt/options"
-	"github.com/mitchellh/mapstructure"
 )
 
 // Given a set of HCL file, find the org name
@@ -27,36 +21,6 @@ func findOrgsFromFilenames(hclFiles []string) map[string][]string {
         names[orgName] = append(names[orgName], file)
     }
     return names
-}
-
-// Given a repository struct returned by the HCL parser, return a githubfoundations.RepositoryInput
-func GetRepositoryInput(repo status.Repository) githubfoundations.RepositoryInput {
-	return githubfoundations.RepositoryInput{
-		Name: repo.Name,
-		AdvanceSecurity: repo.AdvanceSecurity,
-		AllowAutoMerge: repo.AllowAutoMerge,
-		DefaultBranch: repo.DefaultBranch,
-		DeleteHeadBranchOnMerge: repo.DeleteHeadBranchOnMerge,
-		DependabotSecurityUpdates: repo.DependabotSecurityUpdates,
-		Description: repo.Description,
-		HasVulnerabilityAlerts: repo.HasVulnerabilityAlerts,
-		Homepage: repo.Homepage,
-		ProtectedBranches: repo.ProtectedBranches,
-		RequiresWebCommitSignOff: repo.RequiresWebCommitSignOff,
-		Topics: repo.Topics,
-	}
-}
-
-// Setup the terragrunt options with defaults
-func getOptions() *options.TerragruntOptions {
-	tgOptions := options.NewTerragruntOptions()
-	tgOptions.Env = map[string]string{
-		"GCP_SECRET_MANAGER_PROJECT": os.Getenv("GCP_SECRET_MANAGER_PROJECT"),
-		"GCP_TF_STATE_BUCKET_PROJECT": os.Getenv("GCP_SECRET_MANAGER_PROJECT"),
-		"GCP_TF_STATE_BUCKET_NAME": os.Getenv("GCP_TF_STATE_BUCKET_NAME"),
-		"GCP_TF_STATE_BUCKET_LOCATION": os.Getenv("GCP_TF_STATE_BUCKET_LOCATION"),
-	}
-	return tgOptions
 }
 
 // List all of the organizations managed by the tool
@@ -76,11 +40,25 @@ func FindManagedOrgs(orgsDir string) ([]string, error) {
 	return orgs, nil
 }
 
+
 // List all of the organizations + repository configs managed by the tool
-func findOrgFiles(rootDir string, options *options.TerragruntOptions) (map[string][]string, error) {
+func findOrgFiles(rootDir string) (map[string][]string, error) {
 
 	// Get the list of HCL files in the root directory
-	hclFiles, err := config.FindConfigFilesInPath(rootDir, options)
+	// hclFiles, err := config.FindConfigFilesInPath(rootDir, options)
+	var hclFiles []string
+	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// if the file ends with "repositories/terragrunt.hcl", then it is a repository fil
+		if strings.HasSuffix(path, "repositories/terragrunt.hcl") {
+			hclFiles = append(hclFiles, path)
+		}
+
+		return nil
+	})
     if err != nil {
         return nil, err
     }
@@ -89,11 +67,10 @@ func findOrgFiles(rootDir string, options *options.TerragruntOptions) (map[strin
 	return orgFiles, nil
 }
 
-// List all of the repositories managed by the tool
-func FindManagedRepos(ctx context.Context, reposDir string) (status.OrgSet, error) {
-	options := getOptions()
 
-	orgFiles, err := findOrgFiles(reposDir, options)
+// List all of the repositories managed by the tool
+func FindManagedRepos(reposDir string) (status.OrgSet, error) {
+	orgFiles, err := findOrgFiles(reposDir)
 	if err != nil {
 		log.Fatalf("Error in findOrgFiles: %s", err)
         return status.OrgSet{}, err
@@ -132,31 +109,15 @@ func FindManagedRepos(ctx context.Context, reposDir string) (status.OrgSet, erro
 				parts := strings.Split(file, "/")
 				project := parts[len(parts)-4]
 
-				// Parse the HCL file
-				options.TerragruntConfigPath = file
-				options.WorkingDir = path.Dir(file)
-				parseCtx := config.NewParsingContext(ctx, options)
-				parser := hclparse.NewParser()
-				parsedHCL, err := parser.ParseFromFile(file)
-
-				if err != nil {
-					log.Fatalf(`Error in hclparse.NewParser().ParseFromFile: %s`, err)
-					return orgSet, err
+				hclFile := terragrunt.HCLFile {
+					Path: file,
 				}
 
-				tfConfig, err := config.ParseConfig(parseCtx, parsedHCL, nil)
+				inputs, err := hclFile.GetInputsFromFile()
 				if err != nil {
-					log.Fatalf(`Error in config.ParseConfig: %s`, err)
+					log.Fatalf(`Error in getInputsFromFile: %s`, err)
 					return orgSet, err
 				}
-
-				var inputs status.Inputs
-				err = mapstructure.Decode(tfConfig.Inputs, &inputs)
-				if err != nil {
-					log.Fatalf(`Error in mapstructure.Decode: %s`, err)
-					return orgSet, err
-				}
-
 
 				log.Printf("Repository Set has %d private repositories and %d public repositories", len(inputs.PrivateRepositories), len(inputs.PublicRepositories))
 				var repoSet githubfoundations.RepositorySetInput
@@ -167,13 +128,13 @@ func FindManagedRepos(ctx context.Context, reposDir string) (status.OrgSet, erro
 
 				for name, repo := range inputs.PrivateRepositories {
 					// Coerce the repo into a githubfoundations.RepositoryInput
-					repoInput := GetRepositoryInput(repo)
+					repoInput := repo.GetRepositoryInput()
 					repoInput.Name = name
 					repoSet.PrivateRepositories = append(repoSet.PrivateRepositories, &repoInput)
 				}
 				for name, repo := range inputs.PublicRepositories {
 					// Coerce the repo into a githubfoundations.RepositoryInput
-					repoInput := GetRepositoryInput(repo)
+					repoInput := repo.GetRepositoryInput()
 					repoInput.Name = name
 					repoSet.PublicRepositories = append(repoSet.PublicRepositories, &repoInput)
 				}
