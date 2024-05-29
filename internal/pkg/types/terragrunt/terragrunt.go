@@ -183,13 +183,6 @@ func (h *HCLFile) GetInputsFromFile() (status.Inputs, error) {
 		}
 	}
 
-	if viper.IsSet("inputs.default_repository_team_permissions") {
-		log.Printf("dftp: %v",viper.Get("inputs.default_repository_team_permissions"))
-		for permission, value := range viper.Get("inputs.default_repository_team_permissions").(map[string]string) {
-			inputs.DefaultRepositoryTeamPermissions[permission] = value
-		}
-	}
-
 	return inputs, nil
 }
 
