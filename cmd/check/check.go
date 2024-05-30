@@ -40,13 +40,13 @@ var CheckCmd = &cobra.Command{
 		gs := github.NewGithubService(authToken)
 		org, err := gs.GetOrganization(slug)
 		if err == nil {
-			reports = append(reports, org.Check([]types.CheckType{types.GoCGaurdrails}))
+			reports = append(reports, org.Check([]types.CheckType{types.GoCGuardrails}))
 		}
 
 		repos, err := gs.GetRepositories(slug, nil)
 		if err == nil {
 			for _, r := range repos {
-				reports = append(reports, r.Check([]types.CheckType{types.GoCGaurdrails}))
+				reports = append(reports, r.Check([]types.CheckType{types.GoCGuardrails}))
 			}
 		}
 
