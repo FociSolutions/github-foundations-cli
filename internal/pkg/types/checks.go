@@ -39,7 +39,7 @@ type CheckError struct {
 type CheckType string
 
 const (
-	GoCGaurdrails = "GoCGaurdrails"
+	GoCGuardrails = "GoCGuardrails"
 )
 
 type CheckReport struct {

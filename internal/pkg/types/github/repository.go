@@ -24,7 +24,7 @@ func (r *Repository) Check(checkTypes []types.CheckType) types.CheckReport {
 	}
 	for _, t := range checkTypes {
 		switch t {
-		case types.GoCGaurdrails:
+		case types.GoCGuardrails:
 			r, err := r.GoCGaurdrailsCompliant()
 			if err != nil {
 				report.Errors = append(report.Errors, *err)
@@ -109,7 +109,7 @@ func (r *Repository) GoCGaurdrailsCompliant() (types.CheckResult, *types.CheckEr
 	if allErrors != nil {
 		return types.Failed, &types.CheckError{
 			Err:        allErrors,
-			Check:      types.GoCGaurdrails,
+			Check:      types.GoCGuardrails,
 			Violations: violations,
 		}
 	}
