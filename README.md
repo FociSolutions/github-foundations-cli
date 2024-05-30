@@ -78,7 +78,7 @@ list various resources managed by the tool.
 
 ```
     Usage:
-    gh_foundations list <resource> [ProjectDirectory] [options]
+    gh_foundations list <resource> [options] [ProjectsDirectory|OrganzationsDirectory]
 
 ```
 
@@ -86,7 +86,8 @@ Where `<resource>` is one of the following:
 - repos
 - orgs
 
-`[ProjectDirectory]` is the path to the Terragrunt `Project` directory.
+`[ProjectsDirectory]` is the path to the Terragrunt `Projects` directory when listing `repos`.
+`[OrganzationsDirectory]` is the path to the Terragrunt `OrganzationsDirectory` directory when listing `orgs`.
 
 `[options]` is a list of options to filter the list of resources. The options are:
 - repos:
