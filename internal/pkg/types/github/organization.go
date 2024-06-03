@@ -4,6 +4,7 @@ import (
 	"errors"
 	"gh_foundations/internal/pkg/types"
 	"slices"
+	"time"
 
 	"github.com/google/go-github/v61/github"
 )
@@ -16,14 +17,15 @@ type Organization struct {
 func (o *Organization) Check(checkTypes []types.CheckType) types.CheckReport {
 	report := types.CheckReport{
 		EntityType: "github_organization",
-		EntityId:   o.GetName(),
+		EntityId:   o.GetLogin(),
+		Timestamp:  time.Now().Format(time.RFC3339), // Syslog compliant timestamp
 		Results:    make(map[types.CheckType]types.CheckResult),
 		Errors:     []types.CheckError{},
 	}
 	for _, t := range checkTypes {
 		switch t {
 		case types.GoCGuardrails:
-			r, err := o.GoCGaurdrailsCompliant()
+			r, err := o.GoCGuardrailsCompliant()
 			if err != nil {
 				report.Errors = append(report.Errors, *err)
 			}
@@ -36,7 +38,7 @@ func (o *Organization) Check(checkTypes []types.CheckType) types.CheckReport {
 }
 
 // Custom repository roles for an organization need to be accessed separately from settings
-func (o *Organization) GoCGaurdrailsCompliant() (types.CheckResult, *types.CheckError) {
+func (o *Organization) GoCGuardrailsCompliant() (types.CheckResult, *types.CheckError) {
 	var allErrors error
 	violations := make(map[string]string)
 	checks := []func(org *Organization) (string, error){
