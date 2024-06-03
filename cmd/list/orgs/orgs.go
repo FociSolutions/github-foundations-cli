@@ -15,12 +15,11 @@ import (
 
 var OrgsCmd = &cobra.Command{
 	Use:   "orgs",
-	Short: "List managed organizations.",
-	Long: `List managed organizations. This command will list all organizations.\n
-	found in the state file.`,
+	Short: "List managed organizations's slugs.",
+	Long: `This command reads the "providers.hcl" files in the "providers" directory and lists the organization slugs that are managed by the tool.`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) < 1 {
-			return errors.New("requires the path of the \"organizations\" directory")
+			return errors.New("requires the path of the \"providers\" directory")
 		}
 		return nil
 	},
@@ -28,7 +27,7 @@ var OrgsCmd = &cobra.Command{
 
 		orgsDir := args[0]
 
-		orgs, err := functions.FindManagedOrgs(orgsDir)
+		orgs, err := functions.FindManagedOrgSlugs(orgsDir)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)

@@ -78,23 +78,38 @@ func getRepositoryMap(repoList []map[string]interface{}) (map[string]status.Repo
 	return repos, nil
 }
 
-func replaceLocals(contents string) string {
+// Return the locals block from the HCL file as a slice of string slices
+func getLocalsBlock(contents string) [][]string {
 	// The locals are in the form of locals = { key = value }
-	// Then, they are referred to as local.key in the configuration
-	// This function replaces the locals with their values
 
 	// Use regex to find the locals block
 	lre := regexp.MustCompile(`locals\s*{\n*((.*[^}])\n)+}`)
 	locals := lre.FindString(contents)
 
 	if locals == "" {
-		log.Printf("locals not found")
-		return contents
+		fmt.Printf("locals not found")
+		return make([][]string, 0)
 	}
 
-    // Use regex to find the key-value pairs in the locals block
-    kvre := regexp.MustCompile(`(.*[^=])=(.*(?:(:?\n.*[^\]])*])*)`)
-    matches := kvre.FindAllStringSubmatch(locals, -1)
+	// Use regex to find the key-value pairs in the locals block
+	kvre := regexp.MustCompile(`(.*[^=])=(.*(?:(:?\n.*[^\]])*])*)`)
+	matches := kvre.FindAllStringSubmatch(locals, -1)
+
+	// Clean up the matches a little
+	for i, match := range matches {
+		matches[i][1] = strings.Trim(match[1], " \"")
+		matches[i][2] = strings.Trim(match[2], " \"")
+	}
+
+	return matches
+}
+
+
+// The locals are in the form of locals = { key = value }
+// Then, they are referred to as local.key in the configuration
+// This function replaces the locals with their values
+func replaceLocals(contents string) string {
+	matches := getLocalsBlock(contents)
 
 	// Replace the locals with their values
 	for _, match := range matches {
@@ -184,6 +199,30 @@ func (h *HCLFile) GetInputsFromFile() (status.Inputs, error) {
 	}
 
 	return inputs, nil
+}
+
+
+// Given the string content of an HCL file, return a map of locals
+func (h *HCLFile) GetLocalsMap() map[string]string {
+
+	// If the path is not set, return an empty map
+	if h.Path == "" {
+		return make(map[string]string)
+	}
+
+	// If the path is set, read the file and return the locals
+	content, err := afero.ReadFile(fs, h.Path)
+	if err != nil {
+		log.Fatalf(`GetLocalsMap: unable to read config file: %s`, h.Path)
+		return make(map[string]string)
+	}
+
+	macthes := getLocalsBlock(string(content))
+	locals := make(map[string]string)
+	for _, match := range macthes {
+		locals[match[1]] = match[2]
+	}
+	return locals
 }
 
 func NewTerragruntPlanFile(name string, modulePath string, moduleDir string, outputFilePath string) (*PlanFile, error) {

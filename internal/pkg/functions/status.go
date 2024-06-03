@@ -23,37 +23,59 @@ func findOrgsFromFilenames(hclFiles []string) map[string][]string {
     return names
 }
 
-// List all of the organizations managed by the tool
-func FindManagedOrgs(orgsDir string) ([]string, error) {
-	// Get the list of the dir names in the  directory
-	dirs, err := os.ReadDir(orgsDir)
+
+// List all of the organizations managed by the tool's slugs
+func FindManagedOrgSlugs(orgsDir string) ([]string, error) {
+
+	orgFiles, err := findConfigFiles(orgsDir, "providers.hcl")
 	if err != nil {
-		log.Fatalf("Error in os.ReadDir: %s", err)
-        return nil, err
+		log.Fatalf("Error in findOrgFiles: %s", err)
+        return make([]string, 0), err
 	}
 
+	// Walk the orgFiles and get all the providers.hcl files
 	var orgs []string
-	for _, dir := range dirs {
-		orgs = append(orgs, dir.Name())
+	for _, file := range orgFiles {
+		log.Printf("Working on file: %s\n", file)
+
+		hclFile := terragrunt.HCLFile {
+			Path: file,
+		}
+
+		locals := hclFile.GetLocalsMap()
+
+		// If the locals map has an `organization_name` key, then it is an org slug
+		if locals["organization_name"] != "" {
+			orgs = append(orgs, locals["organization_name" ])
+		}
 	}
 
 	return orgs, nil
 }
 
+// List all of the relevant configs managed by the tool
+// The first parameter is the root directory to search in
+// The second parameter is the file name pattern to match
+func findConfigFiles(rootDir string, fileNamePattern ...string) ([]string, error) {
 
-// List all of the organizations + repository configs managed by the tool
-func findOrgFiles(rootDir string) (map[string][]string, error) {
+	// There should be 1 or 0 file name patterns to match
+	patternString := ""
+	if len(fileNamePattern) == 1 {
+		patternString = fileNamePattern[0]
+	}
 
-	// Get the list of HCL files in the root directory
-	// hclFiles, err := config.FindConfigFilesInPath(rootDir, options)
+
 	var hclFiles []string
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// if the file ends with "repositories/terragrunt.hcl", then it is a repository fil
-		if strings.HasSuffix(path, "repositories/terragrunt.hcl") {
+		// Find files that match the fileNamePattern. Default to "repositories/terragrunt.hcl"
+		if patternString == "" {
+			patternString = "repositories/terragrunt.hcl"
+		}
+		if strings.HasSuffix(path, patternString) {
 			hclFiles = append(hclFiles, path)
 		}
 
@@ -63,14 +85,16 @@ func findOrgFiles(rootDir string) (map[string][]string, error) {
         return nil, err
     }
 
-    orgFiles := findOrgsFromFilenames(hclFiles)
-	return orgFiles, nil
+	return hclFiles, nil
 }
 
 
 // List all of the repositories managed by the tool
 func FindManagedRepos(reposDir string) (status.OrgSet, error) {
-	orgFiles, err := findOrgFiles(reposDir)
+	files, err := findConfigFiles(reposDir)
+
+	orgFiles := findOrgsFromFilenames(files)
+
 	if err != nil {
 		log.Fatalf("Error in findOrgFiles: %s", err)
         return status.OrgSet{}, err
