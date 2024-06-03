@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gh_foundations/internal/pkg/types"
 	"reflect"
+	"time"
 
 	"github.com/google/go-github/v61/github"
 )
@@ -19,13 +20,14 @@ func (r *Repository) Check(checkTypes []types.CheckType) types.CheckReport {
 	report := types.CheckReport{
 		EntityType: "github_repository",
 		EntityId:   r.slug,
+		Timestamp:	time.Now().Format(time.RFC3339), // Syslog compliant timestamp
 		Results:    make(map[types.CheckType]types.CheckResult),
 		Errors:     []types.CheckError{},
 	}
 	for _, t := range checkTypes {
 		switch t {
 		case types.GoCGuardrails:
-			r, err := r.GoCGaurdrailsCompliant()
+			r, err := r.GoCGuardrailsCompliant()
 			if err != nil {
 				report.Errors = append(report.Errors, *err)
 			}
@@ -37,7 +39,7 @@ func (r *Repository) Check(checkTypes []types.CheckType) types.CheckReport {
 	return report
 }
 
-func (r *Repository) GoCGaurdrailsCompliant() (types.CheckResult, *types.CheckError) {
+func (r *Repository) GoCGuardrailsCompliant() (types.CheckResult, *types.CheckError) {
 	var allErrors error
 	violations := make(map[string]string)
 	checks := []func(repo *Repository) (string, error) {

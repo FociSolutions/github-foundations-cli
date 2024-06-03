@@ -1,6 +1,8 @@
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 type CheckResult uint16
 
@@ -43,10 +45,11 @@ const (
 )
 
 type CheckReport struct {
-	EntityType string                    `json:"entity_type"`
-	EntityId   string                    `json:"entity_id"`
-	Results    map[CheckType]CheckResult `json:"results"`
-	Errors     []CheckError              `json:"errors"`
+	EntityType 	string						`json:"entity_type"`
+	EntityId   	string						`json:"entity_id"`
+	Timestamp	string						`json:"rfc3339_timestamp"`
+	Results    	map[CheckType]CheckResult	`json:"results"`
+	Errors     	[]CheckError				`json:"errors"`
 }
 
 type ICheckable interface {
