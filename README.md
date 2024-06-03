@@ -16,12 +16,6 @@ A command-line tool for the Github Foundations framework.
         - [Windows](#windows)
     - [From source](#from-source)
 
-
-
-
-
-
-
 ## Usage
 
 There are a few main tools provided by the Github Foundations CLI:
@@ -84,7 +78,7 @@ list various resources managed by the tool.
 
 ```
     Usage:
-    gh_foundations list <resource> [ProjectDirectory] [options]
+    gh_foundations list <resource> [options] [ProjectsDirectory|OrganzationsDirectory]
 
 ```
 
@@ -92,7 +86,10 @@ Where `<resource>` is one of the following:
 - repos
 - orgs
 
-`[ProjectDirectory]` is the path to the Terragrunt `Project` directory.
+
+`[ProjectsDirectory]` is the path to the Terragrunt `Projects` directory when listing `repos`.
+
+`[OrganzationsDirectory]` is the path to the Terragrunt `OrganzationsDirectory` directory when listing `orgs`.
 
 `[options]` is a list of options to filter the list of resources. The options are:
 - repos:
@@ -112,53 +109,62 @@ Download the latest release from the [releases page](http:github.com/FociSolutio
 
 **ADM64**
 ```
-curl -LO "https://github.com/FociSolutions/github-foundations-cli/releases/download/$(curl -s https://api.github.com/repos/FociSolutions/github-foundations-cli/releases/latest | grep tag_name | cut -d '"' -f 4)/UPDATE_ME_github_foundations_linux_amd64"
-chmod +x UPDATE_ME_github_foundations_linux_amd64
-sudo mv UPDATE_ME_github_foundations_linux_amd64 /usr/local/bin/gh_foundations
+curl -LO https://github.com/FociSolutions/github-foundations-cli/releases/latest/download/github-foundations-cli_Linux_x86_64.tar.gz
+tar -xzf github-foundations-cli_Linux_x86_64.tar.gz
+chmod +x github-foundations-cli
+sudo mv github-foundations-cli /usr/local/bin
 ```
 
 **ARM64**
 ```
-curl -LO "https://github.com/FociSolutions/github-foundations-cli/releases/download/$(curl -s https://api.github.com/repos/FociSolutions/github-foundations-cli/releases/latest | grep tag_name | cut -d '"' -f 4)/UPDATE_ME_github_foundations_linux_arm64"
-chmod +x UPDATE_ME_github_foundations_linux_arm64
-sudo mv UPDATE_ME_github_foundations_linux_arm64 /usr/local/bin/gh_foundations
+curl -LO https://github.com/FociSolutions/github-foundations-cli/releases/latest/download/github-foundations-cli_Linux_arm64.tar.gz
+tar -xzf github-foundations-cli_Linux_arm64.tar.gz
+chmod +x github-foundations-cli
+sudo mv github-foundations-cli /usr/local/bin
 ```
 
 #### MacOS
 
 **ADM64**
 ```
-curl -LO "https://github.com/FociSolutions/github-foundations-cli/releases/download/$(curl -s https://api.github.com/repos/FociSolutions/github-foundations-cli/releases/latest | grep tag_name | cut -d '"' -f 4)/UPDATE_ME_github_foundations_darwin_amd64"
-chmod +x UPDATE_ME_github_foundations_darwin_amd64
-sudo mv UPDATE_ME_github_foundations_darwin_amd64 /usr/local/bin/gh_foundations
+curl -LO https://github.com/FociSolutions/github-foundations-cli/releases/latest/download/github-foundations-cli_Linux_x86_64.tar.gz
+tar -xzf github-foundations-cli_Darwin_x86_64.tar.gz
+chmod +x github-foundations-cli
+sudo mv github-foundations-cli /usr/local/bin
 ```
 
 **ARM64**
 ```
-curl -LO "https://github.com/FociSolutions/github-foundations-cli/releases/download/$(curl -s https://api.github.com/repos/FociSolutions/github-foundations-cli/releases/latest | grep tag_name | cut -d '"' -f 4)/UPDATE_ME_github_foundations_darwin_arm64"
-chmod +x UPDATE_ME_github_foundations_darwin_arm64
-sudo mv UPDATE_ME_github_foundations_darwin_arm64 /usr/local/bin/gh_foundations
+curl -LO https://github.com/FociSolutions/github-foundations-cli/releases/latest/download/github-foundations-cli_Linux_arm64.tar.gz
+tar -xzf github-foundations-cli_Darwin_arm64.tar.gz
+chmod +x github-foundations-cli
+sudo mv github-foundations-cli /usr/local/bin
 ```
 
 #### Windows
 
+---
 **i386**
-```
-curl -LO "https://github.com/FociSolutions/github-foundations-cli/releases/download/$(curl -s https://api.github.com/repos/FociSolutions/github-foundations-cli/releases/latest | grep tag_name | cut -d '"' -f 4)/UPDATE_ME_github_foundations_windows_386.exe"
-...
-```
+
+1. Download the [latest release here](https://github.com/FociSolutions/github-foundations-cli/releases/download/v0.0.5/github-foundations-cli_Windows_i386.zip)
 
 **ADM64**
-```
-curl -LO "https://github.com/FociSolutions/github-foundations-cli/releases/download/$(curl -s https://api.github.com/repos/FociSolutions/github-foundations-cli/releases/latest | grep tag_name | cut -d '"' -f 4)/UPDATE_ME_github_foundations_windows_amd64.exe"
-...
-```
+1. Download the [latest release here](https://github.com/FociSolutions/github-foundations-cli/releases/download/v0.0.5/github-foundations-cli_Windows_i386.zip)
 
 **ARM64**
-```
-curl -LO "https://github.com/FociSolutions/github-foundations-cli/releases/download/$(curl -s https://api.github.com/repos/FociSolutions/github-foundations-cli/releases/latest | grep tag_name | cut -d '"' -f 4)/UPDATE_ME_github_foundations_windows_arm64.exe"
-... 
-```
+1. Download the [latest release here](https://github.com/FociSolutions/github-foundations-cli/releases/download/v0.0.5/github-foundations-cli_Windows_i386.zip)
+---
+   
+2. Unzip the package
+3. Place the `github-foundations-cli.exe` executable in a directory of your choice, for example: `%USERPROFILE%\gh-foundations`
+
+* **Add to Path (Optional):**
+4. Right-click on "This PC" and select "Properties".
+5. Click on "Advanced system settings".
+6. Click on the "Environment Variables" button.
+7. Under "System variables", find the "Path" variable and click "Edit".
+8. Click "New" and add the following path: `%USERPROFILE%\gh-foundations` (replace with your chosen directory)
+9. Click "OK" on all open windows to save the changes.
 
 ### From source
 1.  Run `git clone <gh_foundations_cli repo> && cd gh-foundations-cli/`
