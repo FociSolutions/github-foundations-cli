@@ -11,7 +11,6 @@ type RepositorySetInput struct {
 	PrivateRepositories              []*RepositoryInput
 	PublicRepositories               []*RepositoryInput
 	DefaultRepositoryTeamPermissions map[string]string
-	// RuleSets map[string]RulesetInputs
 }
 
 func (r *RepositorySetInput) WriteInputsHCL(file *hclwrite.File) {
