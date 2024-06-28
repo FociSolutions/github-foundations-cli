@@ -29,7 +29,9 @@ require (
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
-	github.com/muesli/ansi v0.0.0-20211018074035-2e021307bc4b // indirect
+	github.com/mitchellh/panicwrap v1.0.0 // indirect
+	github.com/mitchellh/reflectwalk v1.0.2 // indirect
+	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.15.2 // indirect
@@ -62,6 +64,8 @@ require (
 
 require (
 	github.com/charmbracelet/bubbles v0.18.0
+	github.com/erikgeiser/promptkit v0.9.0
+	github.com/gizak/termui/v3 v3.1.0
 	github.com/google/go-github/v61 v61.0.0
 	github.com/hashicorp/hcl/v2 v2.20.1
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
