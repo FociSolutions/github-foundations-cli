@@ -22,7 +22,7 @@ There are a few main tools provided by the Github Foundations CLI:
 
 ```
 Usage:
-    gh_foundations [command]
+    github-foundations-cli [command]
 
 Available Commands:
     gen         Generate HCL input for GitHub Foundations.
@@ -32,7 +32,7 @@ Available Commands:
     help        Help about any command.
 
 Flags:
-    -h, -- help     help for gh_foundations
+    -h, -- help     help for github-foundations-cli
 ```
 
 ### Generate
@@ -41,7 +41,7 @@ This command is used to generate HCL input for GitHub Foundations. This tool is 
 
 ```
 Usage:
-    gh_foundations gen <resource>
+    github-foundations-cli gen <resource>
 ```
 
 Where `<resource>` is one of the following:
@@ -53,7 +53,7 @@ This command will start an interactive process to import resources into Terrafor
     
 ```
 Usage:
-    gh_foundations import [module_path]
+    github-foundations-cli import [module_path]
 
 ```
 
@@ -65,7 +65,7 @@ Perform checks against a Github configuration and generate reports. This is used
 
 ```
     Usage:
-    gh_foundations check <org-slug>
+    github-foundations-cli check <org-slug>
 
 ```
 
@@ -78,7 +78,7 @@ list various resources managed by the tool.
 
 ```
     Usage:
-    gh_foundations list <resource> [options] [ProjectsDirectory|OrganzationsDirectory]
+    github-foundations-cli list <resource> [options] [ProjectsDirectory|OrganzationsDirectory]
 
 ```
 
@@ -127,7 +127,7 @@ sudo mv github-foundations-cli /usr/local/bin
 
 **ADM64**
 ```
-curl -LO https://github.com/FociSolutions/github-foundations-cli/releases/latest/download/github-foundations-cli_Linux_x86_64.tar.gz
+curl -LO https://github.com/FociSolutions/github-foundations-cli/releases/latest/download/github-foundations-cli_Darwin_x86_64.tar.gz
 tar -xzf github-foundations-cli_Darwin_x86_64.tar.gz
 chmod +x github-foundations-cli
 sudo mv github-foundations-cli /usr/local/bin
@@ -135,7 +135,7 @@ sudo mv github-foundations-cli /usr/local/bin
 
 **ARM64**
 ```
-curl -LO https://github.com/FociSolutions/github-foundations-cli/releases/latest/download/github-foundations-cli_Linux_arm64.tar.gz
+curl -LO https://github.com/FociSolutions/github-foundations-cli/releases/latest/download/github-foundations-cli_Darwin_arm64.tar.gz
 tar -xzf github-foundations-cli_Darwin_arm64.tar.gz
 chmod +x github-foundations-cli
 sudo mv github-foundations-cli /usr/local/bin
@@ -167,7 +167,7 @@ sudo mv github-foundations-cli /usr/local/bin
 9. Click "OK" on all open windows to save the changes.
 
 ### From source
-1.  Run `git clone <gh_foundations_cli repo> && cd gh-foundations-cli/`
+1.  Run `git clone git@github.com:FociSolutions/github-foundations-cli && cd github-foundations-cli/`
 2.  Run `go mod download`
 3.  Run `go build -v` for all providers OR build with one provider
 
