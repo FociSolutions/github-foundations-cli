@@ -45,7 +45,7 @@ Usage:
 ```
 
 Where `<resource>` is one of the following:
-- `repository`
+- `repository_set`
 
 ### Import
 
