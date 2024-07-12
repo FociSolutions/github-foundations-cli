@@ -127,7 +127,7 @@ sudo mv github-foundations-cli /usr/local/bin
 
 **ADM64**
 ```
-curl -LO https://github.com/FociSolutions/github-foundations-cli/releases/latest/download/github-foundations-cli_Linux_x86_64.tar.gz
+curl -LO https://github.com/FociSolutions/github-foundations-cli/releases/latest/download/github-foundations-cli_Darwin_x86_64.tar.gz
 tar -xzf github-foundations-cli_Darwin_x86_64.tar.gz
 chmod +x github-foundations-cli
 sudo mv github-foundations-cli /usr/local/bin
@@ -135,7 +135,7 @@ sudo mv github-foundations-cli /usr/local/bin
 
 **ARM64**
 ```
-curl -LO https://github.com/FociSolutions/github-foundations-cli/releases/latest/download/github-foundations-cli_Linux_arm64.tar.gz
+curl -LO https://github.com/FociSolutions/github-foundations-cli/releases/latest/download/github-foundations-cli_Darwin_arm64.tar.gz
 tar -xzf github-foundations-cli_Darwin_arm64.tar.gz
 chmod +x github-foundations-cli
 sudo mv github-foundations-cli /usr/local/bin
