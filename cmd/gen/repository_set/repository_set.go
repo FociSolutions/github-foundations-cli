@@ -11,6 +11,8 @@ import (
 
 	"gh_foundations/internal/pkg/functions"
 	githubfoundations "gh_foundations/internal/pkg/types/github_foundations"
+
+	zone "github.com/lrstanley/bubblezone"
 )
 
 var terraformerStateFile string
@@ -28,12 +30,13 @@ var GenRepositorySetCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		zone.NewGlobal()
 		repositorySet := new(githubfoundations.RepositorySetInput)
 		if terraformerStateFile != "" {
 			repositorySet = genFromTerraformerFile()
 		} else {
 			m := initialModel()
-			if _, err := tea.NewProgram(m).Run(); err != nil {
+			if _, err := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion()).Run(); err != nil {
 				fmt.Println("Error running program:", err)
 				os.Exit(1)
 			}
