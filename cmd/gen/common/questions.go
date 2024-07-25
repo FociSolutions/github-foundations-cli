@@ -442,7 +442,15 @@ func NewCompositeQuestion(questions []CompositeQuestionEntry) *CompositeQuestion
 }
 
 func (q *CompositeQuestion) GetAnswer() string {
-	return "" //TODO
+	answers := make(map[string]string)
+	for i, k := range q.keys {
+		answers[k] = q.questions[i].GetAnswer()
+	}
+	bytes, err := json.Marshal(answers)
+	if err != nil {
+		panic(err)
+	}
+	return string(bytes)
 }
 
 func (q *CompositeQuestion) SetDimensions(width, height int) {
