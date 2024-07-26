@@ -1,7 +1,6 @@
 package common
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -12,12 +11,23 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
 	zone "github.com/lrstanley/bubblezone"
+	yaml "gopkg.in/yaml.v2"
 )
 
 var promptStyle = lipgloss.NewStyle().Margin(1).MarginLeft(0)
+var inputStyle lipgloss.Style = lipgloss.NewStyle().Border(lipgloss.ThickBorder()).BorderTop(false).BorderLeft(false).BorderRight(false)
+var selectedInputStyle lipgloss.Style = inputStyle.BorderForeground(lipgloss.Color("63"))
 
 func renderPrompt(prompt string) string {
 	return promptStyle.Render(fmt.Sprintf("%s:", prompt))
+}
+
+func removeListCursor(style lipgloss.Style) lipgloss.Style {
+	return style.SetString(" ")
+}
+
+func addListCursor(style lipgloss.Style) lipgloss.Style {
+	return style.SetString(">")
 }
 
 type IQuestion interface {
@@ -27,20 +37,28 @@ type IQuestion interface {
 	SetDimensions(width, height int)
 	Focus()
 	Blur()
+	Reset()
 }
 
 type TextQuestion struct {
-	prompt     string
-	inputModel textinput.Model
+	prompt       string
+	inputModel   textinput.Model
+	defaultValue string
 }
 
 func NewTextQuestion(prompt string, defaultValue string) *TextQuestion {
 	m := textinput.New()
+	m.Prompt = ""
 	m.SetValue(defaultValue)
 	return &TextQuestion{
-		prompt:     prompt,
-		inputModel: m,
+		prompt:       prompt,
+		inputModel:   m,
+		defaultValue: defaultValue,
 	}
+}
+
+func (t *TextQuestion) Reset() {
+	t.inputModel.SetValue(t.defaultValue)
 }
 
 func (t *TextQuestion) GetAnswer() string {
@@ -48,8 +66,11 @@ func (t *TextQuestion) GetAnswer() string {
 }
 
 func (t *TextQuestion) View() string {
-
-	return lipgloss.JoinVertical(lipgloss.Left, renderPrompt(t.prompt), t.inputModel.View())
+	inputRenderFn := inputStyle.Render
+	if t.inputModel.Focused() {
+		inputRenderFn = selectedInputStyle.Render
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, renderPrompt(t.prompt), inputRenderFn(t.inputModel.View()))
 }
 
 func (t *TextQuestion) Update(msg tea.Msg) tea.Cmd {
@@ -59,7 +80,7 @@ func (t *TextQuestion) Update(msg tea.Msg) tea.Cmd {
 }
 
 func (t *TextQuestion) SetDimensions(width, height int) {
-	t.inputModel.Width = width
+	t.inputModel.Width = max(width/2, 45)
 }
 
 func (t *TextQuestion) Focus() {
@@ -70,9 +91,12 @@ func (t *TextQuestion) Blur() {
 	t.inputModel.Blur()
 }
 
-type item string
+type item struct {
+	strValue string
+	value    any
+}
 
-func (i item) FilterValue() string { return fmt.Sprint(i) }
+func (i item) FilterValue() string { return i.strValue }
 
 type itemDelegate struct{}
 
@@ -85,16 +109,14 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		return
 	}
 
-	str := fmt.Sprint(i)
-
 	fn := lipgloss.NewStyle().PaddingLeft(4).Render
 	if index == m.Index() {
 		fn = func(s ...string) string {
-			return lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170")).Render("> " + strings.Join(s, " "))
+			return m.Styles.FilterCursor.Foreground(lipgloss.Color("170")).PaddingLeft(2).Render("") + lipgloss.NewStyle().Foreground(lipgloss.Color("170")).Render(strings.Join(s, " "))
 		}
 	}
 
-	fmt.Fprint(w, fn(str))
+	fmt.Fprint(w, fn(i.strValue))
 }
 
 type SelectQuestion struct {
@@ -102,19 +124,39 @@ type SelectQuestion struct {
 	model  list.Model
 }
 
-func NewSelectQuestion(prompt string, selection []string) *SelectQuestion {
+func NewSelectQuestion[T any](prompt string, selection []T) *SelectQuestion {
 	items := make([]list.Item, len(selection))
 	for i, s := range selection {
-		items[i] = item(s)
+		items[i] = item{
+			value:    s,
+			strValue: fmt.Sprint(s),
+		}
 	}
+	listModel := list.New(items, itemDelegate{}, 0, 0)
+	listModel.SetShowTitle(false)
+	listModel.SetShowStatusBar(false)
+	listModel.Styles.FilterCursor = lipgloss.NewStyle().SetString(">")
 	return &SelectQuestion{
 		prompt: prompt,
-		model:  list.New(items, itemDelegate{}, 0, 0),
+		model:  listModel,
 	}
 }
 
+func (s *SelectQuestion) Reset() {
+	s.model.Select(0)
+}
+
 func (s *SelectQuestion) GetAnswer() string {
-	return s.model.SelectedItem().FilterValue()
+	switch rawValue := s.model.SelectedItem().(item).value.(type) {
+	case string:
+		return rawValue
+	default:
+		bytes, err := yaml.Marshal(rawValue)
+		if err != nil {
+			panic(err)
+		}
+		return string(bytes)
+	}
 }
 
 func (s *SelectQuestion) View() string {
@@ -154,21 +196,33 @@ type ListQuestion struct {
 }
 
 func NewListQuestion(prompt string) *ListQuestion {
+	listModel := list.New(make([]list.Item, 0), itemDelegate{}, 0, 0)
+	listModel.SetShowTitle(false)
+	listModel.SetShowStatusBar(false)
+	listModel.Styles.FilterCursor = removeListCursor(lipgloss.NewStyle())
+
+	inputModel := textinput.New()
+	inputModel.Prompt = ""
 	return &ListQuestion{
 		prompt: prompt,
-		values: list.New(make([]list.Item, 0), itemDelegate{}, 0, 0),
-		input:  textinput.New(),
+		values: listModel,
+		input:  inputModel,
 	}
+}
+
+func (l *ListQuestion) Reset() {
+	l.input.SetValue("")
+	l.values.SetItems(make([]list.Item, 0))
 }
 
 func (l *ListQuestion) GetAnswer() string {
 	items := l.values.Items()
-	values := make([]string, len(items))
-	for i, item := range items {
-		values[i] = fmt.Sprint(item)
+	values := make([]any, len(items))
+	for i, it := range items {
+		values[i] = it.(item).value
 	}
 
-	bytes, err := json.Marshal(values)
+	bytes, err := yaml.Marshal(values)
 	if err != nil {
 		panic(err)
 	}
@@ -176,7 +230,11 @@ func (l *ListQuestion) GetAnswer() string {
 }
 
 func (l *ListQuestion) View() string {
-	return lipgloss.JoinVertical(lipgloss.Left, renderPrompt(l.prompt), l.input.View(), l.values.View())
+	inputRenderFn := inputStyle.Render
+	if l.input.Focused() {
+		inputRenderFn = selectedInputStyle.Render
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, renderPrompt(l.prompt), inputRenderFn(l.input.View()), l.values.View())
 }
 
 func (l *ListQuestion) Update(msg tea.Msg) tea.Cmd {
@@ -188,7 +246,11 @@ func (l *ListQuestion) Update(msg tea.Msg) tea.Cmd {
 				l.values.RemoveItem(l.values.Index())
 			}
 		case tea.KeyEnter:
-			inputValue := item(l.input.Value())
+			inputValue := item{
+				strValue: l.input.Value(),
+				value:    l.input.Value(),
+			}
+
 			if l.state == adding {
 				insertCmd := l.values.InsertItem(len(l.values.Items()), inputValue)
 				l.input.Reset()
@@ -216,7 +278,7 @@ func (l *ListQuestion) Update(msg tea.Msg) tea.Cmd {
 }
 
 func (l *ListQuestion) SetDimensions(width, height int) {
-	l.input.Width = width
+	l.input.Width = max(width/2, 45)
 	l.values.SetWidth(width)
 	l.values.SetHeight(height - 5)
 }
@@ -242,15 +304,17 @@ func (l *ListQuestion) selectItem(keyPressed tea.KeyType) {
 		index = 0
 	}
 	l.values.Select(index)
-	l.input.SetValue(fmt.Sprint(l.values.SelectedItem()))
+	l.input.SetValue(l.values.SelectedItem().(item).strValue)
 }
 
 func (l *ListQuestion) switchState(msg tea.KeyMsg) {
 	if l.state == editing {
 		l.state = adding
+		l.values.Styles.FilterCursor = removeListCursor(l.values.Styles.FilterCursor)
 		l.input.SetValue("")
 	} else if l.state == adding && len(l.values.Items()) > 0 {
 		l.state = editing
+		l.values.Styles.FilterCursor = addListCursor(l.values.Styles.FilterCursor)
 		l.selectItem(msg.Type)
 	}
 }
@@ -267,17 +331,34 @@ type KeyValueListQuestion struct {
 }
 
 func NewKeyValueListQuestion(prompt string) *KeyValueListQuestion {
+	listModel := list.New(make([]list.Item, 0), itemDelegate{}, 0, 0)
+	listModel.SetShowTitle(false)
+	listModel.SetShowStatusBar(false)
+	listModel.Styles.FilterCursor = removeListCursor(lipgloss.NewStyle())
+
+	keyInputModel := textinput.New()
+	keyInputModel.Prompt = ""
+
+	valueInputModel := textinput.New()
+	valueInputModel.Prompt = ""
+
 	return &KeyValueListQuestion{
 		prompt:          prompt,
-		listModel:       list.New(make([]list.Item, 0), itemDelegate{}, 0, 0),
-		keyInputModel:   textinput.New(),
-		valueInputModel: textinput.New(),
+		listModel:       listModel,
+		keyInputModel:   keyInputModel,
+		valueInputModel: valueInputModel,
 		keyValueMap:     make(map[string]string),
 	}
 }
 
+func (k *KeyValueListQuestion) Reset() {
+	k.keyInputModel.SetValue("")
+	k.valueInputModel.SetValue("")
+	k.listModel.SetItems(make([]list.Item, 0))
+}
+
 func (k *KeyValueListQuestion) GetAnswer() string {
-	bytes, err := json.Marshal(k.keyValueMap)
+	bytes, err := yaml.Marshal(k.keyValueMap)
 	if err != nil {
 		panic(err)
 	}
@@ -285,7 +366,14 @@ func (k *KeyValueListQuestion) GetAnswer() string {
 }
 
 func (k *KeyValueListQuestion) View() string {
-	inputTopBar := lipgloss.JoinHorizontal(lipgloss.Left, k.keyInputModel.View(), k.valueInputModel.View())
+	keyInput := inputStyle.Render(k.keyInputModel.View())
+	valueInput := inputStyle.Render(k.valueInputModel.View())
+	if k.keyInputModel.Focused() {
+		keyInput = selectedInputStyle.Render(k.keyInputModel.View())
+	} else if k.valueInputModel.Focused() {
+		valueInput = selectedInputStyle.Render(k.valueInputModel.View())
+	}
+	inputTopBar := lipgloss.JoinHorizontal(lipgloss.Left, keyInput, "  ", valueInput)
 	return lipgloss.JoinVertical(lipgloss.Left, renderPrompt(k.prompt), inputTopBar, k.listModel.View())
 }
 
@@ -332,8 +420,8 @@ func (k *KeyValueListQuestion) Update(msg tea.Msg) tea.Cmd {
 }
 
 func (k *KeyValueListQuestion) SetDimensions(width, height int) {
-	k.keyInputModel.Width = width / 2
-	k.valueInputModel.Width = width / 2
+	k.keyInputModel.Width = width/2 - 5
+	k.valueInputModel.Width = width/2 - 5
 	k.listModel.SetWidth(width)
 	k.listModel.SetHeight(height - 5)
 }
@@ -355,7 +443,7 @@ func (l *KeyValueListQuestion) createEntry(key string, value string) string {
 }
 
 func (k *KeyValueListQuestion) splitEntry(idx int) (string, string) {
-	item := k.listModel.Items()[idx]
+	item := k.listModel.Items()[idx].(item).strValue
 	strs := strings.SplitN(fmt.Sprint(item), keyValueSeperator, 2)
 	return strs[0], strs[1]
 }
@@ -379,10 +467,12 @@ func (k *KeyValueListQuestion) selectItem(keyPressed tea.KeyType) {
 func (k *KeyValueListQuestion) switchState(msg tea.KeyMsg) {
 	if k.state == editing {
 		k.state = adding
+		k.listModel.Styles.FilterCursor = removeListCursor(k.listModel.Styles.FilterCursor)
 		k.keyInputModel.SetValue("")
 		k.valueInputModel.SetValue("")
 	} else if k.state == adding && len(k.listModel.Items()) > 0 {
 		k.state = editing
+		k.listModel.Styles.FilterCursor = addListCursor(k.listModel.Styles.FilterCursor)
 		k.selectItem(msg.Type)
 	}
 }
@@ -391,7 +481,11 @@ func (k *KeyValueListQuestion) putEntry(key string, value string) tea.Cmd {
 	_, existing := k.keyValueMap[key]
 	k.keyValueMap[key] = value
 	idx := len(k.listModel.Items())
-	newItem := item(k.createEntry(key, value))
+	entry := k.createEntry(key, value)
+	newItem := item{
+		strValue: entry,
+		value:    entry,
+	}
 	if existing {
 		for i := 0; i < idx; i++ {
 			existingKey, _ := k.splitEntry(i)
@@ -407,6 +501,7 @@ func (k *KeyValueListQuestion) putEntry(key string, value string) tea.Cmd {
 }
 
 type CompositeQuestion struct {
+	title                 string
 	questions             []IQuestion
 	keys                  []string
 	questionZonePrefix    string
@@ -424,7 +519,7 @@ type CompositeQuestionEntry struct {
 var compositeQuestionStyle lipgloss.Style = lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).MarginLeft(1).MarginRight(1).PaddingLeft(1).PaddingRight(1)
 var selectedCompositeQuestionStyle lipgloss.Style = compositeQuestionStyle.BorderForeground(lipgloss.Color("63"))
 
-func NewCompositeQuestion(questions []CompositeQuestionEntry) *CompositeQuestion {
+func NewCompositeQuestion(title string, questions []CompositeQuestionEntry) *CompositeQuestion {
 	q := make([]IQuestion, len(questions))
 	k := make([]string, len(questions))
 	for i := range questions {
@@ -432,6 +527,7 @@ func NewCompositeQuestion(questions []CompositeQuestionEntry) *CompositeQuestion
 		k[i] = questions[i].Key
 	}
 	return &CompositeQuestion{
+		title:                 title,
 		questions:             q,
 		keys:                  k,
 		questionZonePrefix:    uuid.New().String(),
@@ -441,12 +537,23 @@ func NewCompositeQuestion(questions []CompositeQuestionEntry) *CompositeQuestion
 	}
 }
 
-func (q *CompositeQuestion) GetAnswer() string {
-	answers := make(map[string]string)
-	for i, k := range q.keys {
-		answers[k] = q.questions[i].GetAnswer()
+func (q *CompositeQuestion) Reset() {
+	for _, question := range q.questions {
+		question.Reset()
 	}
-	bytes, err := json.Marshal(answers)
+}
+
+func (q *CompositeQuestion) GetAnswer() string {
+	answers := make(map[string]interface{})
+	for i, k := range q.keys {
+		var a interface{}
+		err := yaml.Unmarshal([]byte(q.questions[i].GetAnswer()), &a)
+		if err != nil {
+			panic(err)
+		}
+		answers[k] = a
+	}
+	bytes, err := yaml.Marshal(answers)
 	if err != nil {
 		panic(err)
 	}
@@ -480,6 +587,10 @@ func (q *CompositeQuestion) View() string {
 		}
 
 		views[i] = zone.Mark(q.getQuestionZoneMarkKey(i), renderFn(question.View()))
+	}
+
+	if len(q.title) > 0 {
+		views = append([]string{q.title}, views...)
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, views...)

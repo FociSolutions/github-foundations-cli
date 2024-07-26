@@ -171,7 +171,7 @@ type EnvironmentInputs struct {
 }
 
 type TemplateRepositoryInputs struct {
-	Owner              string
-	Repository         string
-	IncludeAllBranches bool
+	Owner              string `yaml:"Owner"`
+	Repository         string `yaml:"Repository"`
+	IncludeAllBranches bool   `yaml:"IncludeAllBranches"`
 }
