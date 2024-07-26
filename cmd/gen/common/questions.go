@@ -321,6 +321,11 @@ func (l *ListQuestion) switchState(msg tea.KeyMsg) {
 
 const keyValueSeperator string = " = "
 
+type keyValuePair struct {
+	key   string
+	value string
+}
+
 type KeyValueListQuestion struct {
 	prompt          string
 	listModel       list.Model
@@ -438,14 +443,19 @@ func (k *KeyValueListQuestion) Blur() {
 	k.state = unfocused
 }
 
-func (l *KeyValueListQuestion) createEntry(key string, value string) string {
-	return strings.Join([]string{key, value}, keyValueSeperator)
+func (l *KeyValueListQuestion) createItem(key string, value string) item {
+	return item{
+		strValue: strings.Join([]string{key, value}, keyValueSeperator),
+		value: keyValuePair{
+			key:   key,
+			value: value,
+		},
+	}
 }
 
-func (k *KeyValueListQuestion) splitEntry(idx int) (string, string) {
-	item := k.listModel.Items()[idx].(item).strValue
-	strs := strings.SplitN(fmt.Sprint(item), keyValueSeperator, 2)
-	return strs[0], strs[1]
+func (k *KeyValueListQuestion) getKeyValuePair(idx int) keyValuePair {
+	item := k.listModel.Items()[idx].(item)
+	return item.value.(keyValuePair)
 }
 
 func (k *KeyValueListQuestion) selectItem(keyPressed tea.KeyType) {
@@ -459,9 +469,9 @@ func (k *KeyValueListQuestion) selectItem(keyPressed tea.KeyType) {
 		index = 0
 	}
 	k.listModel.Select(index)
-	key, value := k.splitEntry(index)
-	k.keyInputModel.SetValue(key)
-	k.valueInputModel.SetValue(value)
+	kvp := k.getKeyValuePair(index)
+	k.keyInputModel.SetValue(kvp.key)
+	k.valueInputModel.SetValue(kvp.value)
 }
 
 func (k *KeyValueListQuestion) switchState(msg tea.KeyMsg) {
@@ -481,15 +491,11 @@ func (k *KeyValueListQuestion) putEntry(key string, value string) tea.Cmd {
 	_, existing := k.keyValueMap[key]
 	k.keyValueMap[key] = value
 	idx := len(k.listModel.Items())
-	entry := k.createEntry(key, value)
-	newItem := item{
-		strValue: entry,
-		value:    entry,
-	}
+	newItem := k.createItem(key, value)
 	if existing {
 		for i := 0; i < idx; i++ {
-			existingKey, _ := k.splitEntry(i)
-			if existingKey == key {
+			kvp := k.getKeyValuePair(i)
+			if kvp.key == key {
 				k.listModel.RemoveItem(i)
 				return k.listModel.InsertItem(i, newItem)
 			}
