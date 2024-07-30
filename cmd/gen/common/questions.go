@@ -319,7 +319,7 @@ func (l *ListQuestion) switchState(msg tea.KeyMsg) {
 	}
 }
 
-const keyValueSeperator string = " = "
+const keyValueSeparator string = " = "
 
 type keyValuePair struct {
 	key   string
@@ -360,6 +360,7 @@ func (k *KeyValueListQuestion) Reset() {
 	k.keyInputModel.SetValue("")
 	k.valueInputModel.SetValue("")
 	k.listModel.SetItems(make([]list.Item, 0))
+	k.keyValueMap = make(map[string]string)
 }
 
 func (k *KeyValueListQuestion) GetAnswer() string {
@@ -445,7 +446,7 @@ func (k *KeyValueListQuestion) Blur() {
 
 func (l *KeyValueListQuestion) createItem(key string, value string) item {
 	return item{
-		strValue: strings.Join([]string{key, value}, keyValueSeperator),
+		strValue: strings.Join([]string{key, value}, keyValueSeparator),
 		value: keyValuePair{
 			key:   key,
 			value: value,
