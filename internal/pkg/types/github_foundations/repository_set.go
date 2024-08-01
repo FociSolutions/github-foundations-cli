@@ -11,10 +11,9 @@ type RepositorySetInput struct {
 	PrivateRepositories              []*RepositoryInput
 	PublicRepositories               []*RepositoryInput
 	DefaultRepositoryTeamPermissions map[string]string
-	// RuleSets map[string]RulesetInputs
 }
 
-func (r *RepositorySetInput) WriteInputsHCL(file *hclwrite.File) {
+func (r *RepositorySetInput) WriteHCL(file *hclwrite.File) {
 	rootBody := file.Body()
 	rootBodyMap := make(map[string]cty.Value)
 
@@ -172,7 +171,7 @@ type EnvironmentInputs struct {
 }
 
 type TemplateRepositoryInputs struct {
-	Owner              string
-	Repository         string
-	IncludeAllBranches bool
+	Owner              string `yaml:"Owner"`
+	Repository         string `yaml:"Repository"`
+	IncludeAllBranches bool   `yaml:"IncludeAllBranches"`
 }
