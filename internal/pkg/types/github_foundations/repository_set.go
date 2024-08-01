@@ -13,7 +13,7 @@ type RepositorySetInput struct {
 	DefaultRepositoryTeamPermissions map[string]string
 }
 
-func (r *RepositorySetInput) WriteInputsHCL(file *hclwrite.File) {
+func (r *RepositorySetInput) WriteHCL(file *hclwrite.File) {
 	rootBody := file.Body()
 	rootBodyMap := make(map[string]cty.Value)
 
