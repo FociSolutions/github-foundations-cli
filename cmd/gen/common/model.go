@@ -9,15 +9,18 @@ import (
 	zone "github.com/lrstanley/bubblezone"
 )
 
-type model struct {
+type model[T any] struct {
+	Result *T
+
 	width           int
 	height          int
 	questions       []IQuestion
 	currentQuestion int
 	loadingSpinner  spinner.Model
 	viewport        viewport.Model
-	submitFn        func([]string)
+	submitFn        func([]string, *T)
 	submitted       bool
+	showHelp        bool
 }
 
 var (
@@ -55,21 +58,23 @@ var viewportKeyBindings viewport.KeyMap = viewport.KeyMap{
 	),
 }
 
-func NewModel(questions []IQuestion, submitFn func([]string)) model {
-	return model{
+func NewModel[T any](questions []IQuestion, defaultValue *T, submitFn func([]string, *T)) model[T] {
+	return model[T]{
 		loadingSpinner:  spinner.New(),
 		questions:       questions,
 		currentQuestion: 0,
 		submitFn:        submitFn,
+		Result:          defaultValue,
 		submitted:       false,
+		showHelp:        false,
 	}
 }
 
-func (m model) Init() tea.Cmd {
+func (m model[T]) Init() tea.Cmd {
 	return m.loadingSpinner.Tick
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m model[T]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -84,10 +89,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetContent(m.questions[0].View())
 		return m, tea.Batch(resizeCmds...)
 	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
+		switch msg.String() {
+		case tea.KeyCtrlC.String():
 			return m, tea.Quit
-		case tea.KeyShiftLeft, tea.KeyShiftRight:
+		case tea.KeyShiftLeft.String(), tea.KeyShiftRight.String():
 			m.questions[m.currentQuestion].Blur()
 			if msg.Type == tea.KeyShiftLeft {
 				m.currentQuestion = max(0, m.currentQuestion-1)
@@ -95,6 +100,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.currentQuestion = min(len(m.questions)-1, m.currentQuestion+1)
 			}
 			m.questions[m.currentQuestion].Focus()
+		case "?":
+			m.showHelp = !m.showHelp
+		case tea.KeyEscape.String():
+			m.showHelp = false
 		}
 	case tea.MouseMsg:
 		if msg.Action == tea.MouseActionRelease && msg.Button == tea.MouseButtonLeft {
@@ -103,7 +112,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				for i, q := range m.questions {
 					answers[i] = q.GetAnswer()
 				}
-				m.submitFn(answers)
+				m.submitFn(answers, m.Result)
 				m.submitted = true
 			} else if zone.Get(resetButtonZoneKey).InBounds(msg) {
 				m.reset()
@@ -121,7 +130,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(viewportUpdateCmd, questionUpdateCmd)
 }
 
-func (m model) View() string {
+func (m model[T]) View() string {
 	if m.width == 0 {
 		return m.loadingSpinner.View()
 	}
@@ -144,7 +153,7 @@ func (m model) View() string {
 	}
 }
 
-func (m *model) reset() {
+func (m *model[T]) reset() {
 	for i := range m.questions {
 		m.questions[i].Reset()
 	}
