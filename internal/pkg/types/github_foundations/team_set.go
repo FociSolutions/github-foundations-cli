@@ -37,7 +37,11 @@ func (t *TeamInput) GetCtyValue() cty.Value {
 	mapVal := make(map[string]cty.Value)
 	mapVal["description"] = cty.StringVal(t.Description)
 	mapVal["privacy"] = cty.StringVal(t.Privacy)
-	mapVal["parent_id"] = cty.StringVal(t.ParentId)
+
+	if len(t.ParentId) > 0 {
+		mapVal["parent_id"] = cty.StringVal(t.ParentId)
+	}
+
 	mapVal["maintainers"] = toCtyValueSlice(t.Maintainers)
 	mapVal["members"] = toCtyValueSlice(t.Members)
 
