@@ -157,7 +157,9 @@ func (m model[T]) View() string {
 func (m *model[T]) reset() {
 	for i := range m.questions {
 		m.questions[i].Reset()
+		m.questions[i].Blur()
 	}
 	m.currentQuestion = 0
+	m.questions[0].Focus()
 	m.submitted = false
 }
