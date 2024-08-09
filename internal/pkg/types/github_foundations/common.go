@@ -1,6 +1,8 @@
 package githubfoundations
 
-import "github.com/zclconf/go-cty/cty"
+import (
+	"github.com/zclconf/go-cty/cty"
+)
 
 func toCtyValueSlice(values []string) cty.Value {
 	if len(values) == 0 {
@@ -8,8 +10,8 @@ func toCtyValueSlice(values []string) cty.Value {
 	}
 
 	ctyValues := make([]cty.Value, len(values))
-	for _, v := range values {
-		ctyValues = append(ctyValues, cty.StringVal(v))
+	for i, v := range values {
+		ctyValues[i] = cty.StringVal(v)
 	}
 	return cty.ListVal(ctyValues)
 }
