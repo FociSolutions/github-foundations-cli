@@ -2,6 +2,7 @@ package gen
 
 import (
 	repositoryset "gh_foundations/cmd/gen/repository_set"
+	teamset "gh_foundations/cmd/gen/team_set"
 
 	"github.com/spf13/cobra"
 )
@@ -14,4 +15,5 @@ var GenCmd = &cobra.Command{
 
 func init() {
 	GenCmd.AddCommand(repositoryset.GenRepositorySetCmd)
+	GenCmd.AddCommand(teamset.GenTeamSetCmd)
 }

@@ -86,6 +86,7 @@ func (m model[T]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			q.SetDimensions(msg.Width, msg.Height)
 			resizeCmds = append(resizeCmds, q.Update(msg))
 		}
+		m.questions[0].Focus()
 		m.viewport.SetContent(m.questions[0].View())
 		return m, tea.Batch(resizeCmds...)
 	case tea.KeyMsg:
@@ -156,7 +157,9 @@ func (m model[T]) View() string {
 func (m *model[T]) reset() {
 	for i := range m.questions {
 		m.questions[i].Reset()
+		m.questions[i].Blur()
 	}
 	m.currentQuestion = 0
+	m.questions[0].Focus()
 	m.submitted = false
 }

@@ -13,7 +13,7 @@ type HCLWritable interface {
 func OutputHCLToFile(fileName string, writable HCLWritable) error {
 	file := hclwrite.NewEmptyFile()
 	writable.WriteHCL(file)
-	output, err := os.Create("repository_set.inputs.hcl")
+	output, err := os.Create(fileName)
 	if err != nil {
 		return err
 	}

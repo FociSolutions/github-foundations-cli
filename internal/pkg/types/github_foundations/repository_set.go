@@ -70,45 +70,27 @@ func (r *RepositoryInput) GetCtyValue() cty.Value {
 	mapVal["default_branch"] = cty.StringVal(r.DefaultBranch)
 	mapVal["advance_security"] = cty.BoolVal(r.AdvanceSecurity)
 	mapVal["has_vulnerability_alerts"] = cty.BoolVal(r.HasVulnerabilityAlerts)
-	topics := []cty.Value{}
-	for _, topic := range r.Topics {
-		topics = append(topics, cty.StringVal(topic))
-	}
-	if len(topics) > 0 {
-		mapVal["topics"] = cty.ListVal(topics)
-	} else {
-		mapVal["topics"] = cty.ListValEmpty(cty.String)
-	}
+	mapVal["topics"] = toCtyValueSlice(r.Topics)
 	mapVal["homepage"] = cty.StringVal(r.Homepage)
 	mapVal["delete_head_on_merge"] = cty.BoolVal(r.DeleteHeadBranchOnMerge)
 	mapVal["requires_web_commit_signing"] = cty.BoolVal(r.RequiresWebCommitSignOff)
 	mapVal["dependabot_security_updates"] = cty.BoolVal(r.DependabotSecurityUpdates)
-	mapVal["protected_branches"] = cty.ListValEmpty(cty.String)
+	mapVal["protected_branches"] = toCtyValueSlice(r.ProtectedBranches)
 	mapVal["allow_auto_merge"] = cty.BoolVal(r.AllowAutoMerge)
 
 	// Optional fields
 	if len(r.OrganizationActionSecrets) > 0 {
-		orgActionSecrets := []cty.Value{}
-		for _, secret := range r.OrganizationActionSecrets {
-			orgActionSecrets = append(orgActionSecrets, cty.StringVal(secret))
-		}
-		mapVal["organization_action_secrets"] = cty.ListVal(orgActionSecrets)
+		mapVal["organization_action_secrets"] = toCtyValueSlice(r.OrganizationActionSecrets)
+	}
 
-	}
 	if len(r.OrganizationCodespaceSecrets) > 0 {
-		orgCodespaceSecrets := []cty.Value{}
-		for _, secret := range r.OrganizationCodespaceSecrets {
-			orgCodespaceSecrets = append(orgCodespaceSecrets, cty.StringVal(secret))
-		}
-		mapVal["organization_codespace_secrets"] = cty.ListVal(orgCodespaceSecrets)
+		mapVal["organization_codespace_secrets"] = toCtyValueSlice(r.OrganizationCodespaceSecrets)
 	}
+
 	if len(r.OrganizationDependabotSecrets) > 0 {
-		orgDependaBotSecrets := []cty.Value{}
-		for _, secret := range r.OrganizationDependabotSecrets {
-			orgDependaBotSecrets = append(orgDependaBotSecrets, cty.StringVal(secret))
-		}
-		mapVal["organization_dependabot_secrets"] = cty.ListVal(orgDependaBotSecrets)
+		mapVal["organization_dependabot_secrets"] = toCtyValueSlice(r.OrganizationDependabotSecrets)
 	}
+
 	if len(r.ActionSecrets) > 0 {
 		actionSecretsMap := make(map[string]cty.Value)
 		for key, val := range r.ActionSecrets {
