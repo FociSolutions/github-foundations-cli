@@ -75,7 +75,7 @@ func (r *RepositoryInput) GetCtyValue() cty.Value {
 	mapVal["delete_head_on_merge"] = cty.BoolVal(r.DeleteHeadBranchOnMerge)
 	mapVal["requires_web_commit_signing"] = cty.BoolVal(r.RequiresWebCommitSignOff)
 	mapVal["dependabot_security_updates"] = cty.BoolVal(r.DependabotSecurityUpdates)
-	mapVal["protected_branches"] = cty.ListValEmpty(cty.String)
+	mapVal["protected_branches"] = toCtyValueSlice(r.ProtectedBranches)
 	mapVal["allow_auto_merge"] = cty.BoolVal(r.AllowAutoMerge)
 
 	// Optional fields
