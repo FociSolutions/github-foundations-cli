@@ -37,6 +37,8 @@ Flags:
 
 ### Generate
 
+#### Generate using the Interactive mode
+
 This command is used to generate HCL input for GitHub Foundations. This tool is used to generate HCL input for GitHub Foundations from state files output by terraformer.
 
 ```
@@ -47,10 +49,14 @@ Usage:
 Where `<resource>` is one of the following:
 - `repository_set`
 
+Use `Shift + →` (right arrow) and `Shift + ←` (left arrow) to navigate through the questions.
+
+Click on `Submit` to generate the HCL file.
+
 ### Import
 
 This command will start an interactive process to import resources into Terraform state. It uses the results of a terraform plan to determine which resources are available for import.
-    
+
 ```
 Usage:
     github-foundations-cli import [module_path]
@@ -154,7 +160,7 @@ sudo mv github-foundations-cli /usr/local/bin
 **ARM64**
 1. Download the [latest release here](https://github.com/FociSolutions/github-foundations-cli/releases/download/v0.0.5/github-foundations-cli_Windows_i386.zip)
 ---
-   
+
 2. Unzip the package
 3. Place the `github-foundations-cli.exe` executable in a directory of your choice, for example: `%USERPROFILE%\gh-foundations`
 
@@ -170,4 +176,3 @@ sudo mv github-foundations-cli /usr/local/bin
 1.  Run `git clone git@github.com:FociSolutions/github-foundations-cli && cd github-foundations-cli/`
 2.  Run `go mod download`
 3.  Run `go build -v` for all providers OR build with one provider
-
