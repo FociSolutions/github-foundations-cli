@@ -3,7 +3,7 @@ name: Gh Foundations CLI Tool Test
 on:
   pull_request:
   workflow_dispatch:
-    
+
 jobs:
   build:
 
@@ -20,7 +20,7 @@ jobs:
           go-version: ${{ matrix.go-version }}
       - name: Install dependencies
         run: |
-          go get .
+          go install .
       - name: Build
         run: go build -v ./...
       - name: Test
