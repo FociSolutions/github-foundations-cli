@@ -27,13 +27,15 @@ func findOrgsFromFilenames(hclFiles []string) map[string][]string {
 // List all of the organizations managed by the tool's slugs
 func FindManagedOrgSlugs(orgsDir string) ([]string, error) {
 
-	orgFiles, err := findConfigFiles(orgsDir, "providers.hcl")
+	// Look for both providers.hcl and root.hcl files for backward compatibility
+	// and to support the new Terragrunt naming convention
+	orgFiles, err := findConfigFiles(orgsDir, "providers.hcl", "root.hcl")
 	if err != nil {
 		log.Fatalf("Error in findOrgFiles: %s", err)
         return make([]string, 0), err
 	}
 
-	// Walk the orgFiles and get all the providers.hcl files
+	// Walk the orgFiles and get all the providers.hcl and root.hcl files
 	var orgs []string
 	for _, file := range orgFiles {
 		log.Printf("Working on file: %s\n", file)
@@ -55,15 +57,14 @@ func FindManagedOrgSlugs(orgsDir string) ([]string, error) {
 
 // List all of the relevant configs managed by the tool
 // The first parameter is the root directory to search in
-// The second parameter is the file name pattern to match
+// The second parameter is the file name pattern(s) to match
 func findConfigFiles(rootDir string, fileNamePattern ...string) ([]string, error) {
 
-	// There should be 1 or 0 file name patterns to match
-	patternString := ""
-	if len(fileNamePattern) == 1 {
-		patternString = fileNamePattern[0]
+	// Default to "repositories/terragrunt.hcl" if no patterns provided
+	patterns := fileNamePattern
+	if len(patterns) == 0 {
+		patterns = []string{"repositories/terragrunt.hcl"}
 	}
-
 
 	var hclFiles []string
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
@@ -71,12 +72,12 @@ func findConfigFiles(rootDir string, fileNamePattern ...string) ([]string, error
 			return err
 		}
 
-		// Find files that match the fileNamePattern. Default to "repositories/terragrunt.hcl"
-		if patternString == "" {
-			patternString = "repositories/terragrunt.hcl"
-		}
-		if strings.HasSuffix(path, patternString) {
-			hclFiles = append(hclFiles, path)
+		// Check if the path matches any of the patterns
+		for _, pattern := range patterns {
+			if strings.HasSuffix(path, pattern) {
+				hclFiles = append(hclFiles, path)
+				break // Only add each file once
+			}
 		}
 
 		return nil
