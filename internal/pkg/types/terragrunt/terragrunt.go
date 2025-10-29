@@ -165,7 +165,15 @@ func (h *HCLFile) GetInputsFromFile() (status.Inputs, error) {
 		}
 	}
 
-	raw := viper.Get("inputs").([]map[string]interface{})
+	// Check if the inputs section exists before processing
+	rawInputs := viper.Get("inputs")
+	if rawInputs == nil {
+		// No inputs section found, return empty inputs
+		log.Printf("No inputs section found in file: %s\n", h.Path)
+		return inputs, nil
+	}
+
+	raw := rawInputs.([]map[string]interface{})
 	for key, input := range raw[0] {
 		switch key {
 			case "private_repositories":
