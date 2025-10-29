@@ -173,7 +173,18 @@ func (h *HCLFile) GetInputsFromFile() (status.Inputs, error) {
 		return inputs, nil
 	}
 
-	raw := rawInputs.([]map[string]interface{})
+	// Safely type assert the inputs
+	raw, ok := rawInputs.([]map[string]interface{})
+	if !ok {
+		log.Printf("Invalid inputs format in file: %s\n", h.Path)
+		return inputs, fmt.Errorf("inputs section is not in expected format")
+	}
+
+	if len(raw) == 0 {
+		// Empty inputs section, return empty inputs
+		return inputs, nil
+	}
+
 	for key, input := range raw[0] {
 		switch key {
 			case "private_repositories":
