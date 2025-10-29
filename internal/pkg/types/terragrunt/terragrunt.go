@@ -104,6 +104,48 @@ func getLocalsBlock(contents string) [][]string {
 	return matches
 }
 
+// Check if the HCL file has an include block and return the included file path
+func getIncludedFilePath(contents string, currentFilePath string) string {
+	// Look for include block with find_in_parent_folders
+	// Pattern: include "name" { path = find_in_parent_folders("filename") }
+	includeRe := regexp.MustCompile(`include\s+["']?\w+["']?\s*{\s*path\s*=\s*find_in_parent_folders\s*\(\s*["']([^"']+)["']\s*\)`)
+	matches := includeRe.FindStringSubmatch(contents)
+	
+	if len(matches) > 1 {
+		filename := matches[1]
+		// Walk up the directory tree to find the file
+		dir := path.Dir(currentFilePath)
+		for {
+			candidatePath := path.Join(dir, filename)
+			if _, err := fs.Stat(candidatePath); err == nil {
+				return candidatePath
+			}
+			parentDir := path.Dir(dir)
+			if parentDir == dir {
+				// Reached root, file not found
+				break
+			}
+			dir = parentDir
+		}
+	}
+	
+	return ""
+}
+
+// Read inputs from a parent file referenced by include
+func getInputsFromIncludedFile(includedFilePath string) (status.Inputs, error) {
+	var inputs status.Inputs
+	
+	if includedFilePath == "" {
+		return inputs, nil
+	}
+	
+	// Read the included file and parse its inputs
+	hclFile := HCLFile{Path: includedFilePath}
+	return hclFile.GetInputsFromFile()
+}
+
+
 
 // The locals are in the form of locals = { key = value }
 // Then, they are referred to as local.key in the configuration
@@ -168,7 +210,27 @@ func (h *HCLFile) GetInputsFromFile() (status.Inputs, error) {
 	// Check if the inputs section exists before processing
 	rawInputs := viper.Get("inputs")
 	if rawInputs == nil {
-		// No inputs section found, return empty inputs
+		// No inputs section found directly in this file
+		// Check if there's an include block that references a parent file
+		contents, err := afero.ReadFile(fs, h.Path)
+		if err != nil {
+			log.Printf("Unable to read file to check for includes: %s\n", h.Path)
+			return inputs, nil
+		}
+		
+		includedFilePath := getIncludedFilePath(string(contents), h.Path)
+		if includedFilePath != "" {
+			log.Printf("File %s includes %s, reading inputs from parent\n", h.Path, includedFilePath)
+			// Read inputs from the included file
+			parentInputs, err := getInputsFromIncludedFile(includedFilePath)
+			if err != nil {
+				log.Printf("Error reading inputs from included file %s: %v\n", includedFilePath, err)
+				return inputs, nil
+			}
+			return parentInputs, nil
+		}
+		
+		// No inputs section and no include found
 		log.Printf("No inputs section found in file: %s\n", h.Path)
 		return inputs, nil
 	}
