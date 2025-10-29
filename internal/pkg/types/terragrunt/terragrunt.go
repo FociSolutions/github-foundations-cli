@@ -14,10 +14,13 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
 	"github.com/tidwall/gjson"
+	"github.com/zclconf/go-cty/cty"
 )
 
 var fs = afero.NewOsFs()
@@ -55,66 +58,132 @@ type HCLFile struct {
 
 func getRepository(repo map[string]interface{}) (status.Repository, error) {
 	var repository status.Repository
-
-	err := mapstructure.Decode(repo, &repository)
-	if err != nil {
-		log.Fatalf("Error in getInputsFromFile mapstructure.Decode: %s", err)
-		return repository, err
+	if err := mapstructure.Decode(repo, &repository); err != nil {
+		return repository, fmt.Errorf("getRepository decode error: %w", err)
 	}
-
 	return repository, nil
-
 }
 
 
 // Given a repository map, returned by Viper, return a map of status.Repository
-func getRepositoryMap(repoList []map[string]interface{}) (map[string]status.Repository, error) {
+// Accept both the historical []map[string]interface{} shape and a direct map[string]interface{}
+func getRepositoryMap(raw interface{}) (map[string]status.Repository, error) {
 	repos := make(map[string]status.Repository)
 
-	for name, r := range repoList[0] {
-		details := r.([]map[string]interface{})
-		d := details[0]
-		repo, err := getRepository(d)
-		if err != nil {
-			log.Fatalf("Error in getRepositoryMap: %s", err)
-			return repos, err
+	// Case 1: []map[string]interface{} (legacy viper decoding)
+	if list, ok := raw.([]map[string]interface{}); ok && len(list) > 0 {
+		for name, r := range list[0] {
+			switch typed := r.(type) {
+			case []map[string]interface{}: // current nested slice form
+				if len(typed) == 0 { continue }
+				repo, err := getRepository(typed[0])
+				if err != nil { return repos, err }
+				repo.Name = name
+				repos[name] = repo
+			case map[string]interface{}: // simplified direct object
+				repo, err := getRepository(typed)
+				if err != nil { return repos, err }
+				repo.Name = name
+				repos[name] = repo
+			default:
+				log.Printf("getRepositoryMap: unsupported repository value type for %s: %T", name, r)
+			}
 		}
-		repos[name] = repo
+		return repos, nil
 	}
+
+	// Case 2: direct map[string]interface{}
+	if direct, ok := raw.(map[string]interface{}); ok {
+		for name, r := range direct {
+			if typed, ok := r.(map[string]interface{}); ok {
+				repo, err := getRepository(typed)
+				if err != nil { return repos, err }
+				repo.Name = name
+				repos[name] = repo
+			} else if typedList, ok := r.([]map[string]interface{}); ok && len(typedList) > 0 {
+				repo, err := getRepository(typedList[0])
+				if err != nil { return repos, err }
+				repo.Name = name
+				repos[name] = repo
+			} else {
+				log.Printf("getRepositoryMap: unsupported direct repository value type for %s: %T", name, r)
+			}
+		}
+		return repos, nil
+	}
+
+	log.Printf("getRepositoryMap: unrecognized raw repository structure: %T", raw)
 	return repos, nil
 }
 
 // Return the locals block from the HCL file as a slice of string slices
-func getLocalsBlock(contents string) [][]string {
-	// The locals are in the form of locals = { key = value }
-
-	// Use regex to find the locals block
-	lre := regexp.MustCompile(`locals\s*{\n*((.*[^}])\n)+}`)
-	locals := lre.FindString(contents)
-
-	if locals == "" {
-		fmt.Printf("locals not found")
-		return make([][]string, 0)
+func getLocalsBlock(contents string) (string, [][]string) {
+	// Very lightweight parser for a single 'locals { ... }' block.
+	// We iterate line by line once we find the opening 'locals {' until the matching '}'.
+	lines := strings.Split(contents, "\n")
+	start := -1
+	braceDepth := 0
+	for i, line := range lines {
+		if start == -1 && strings.HasPrefix(strings.TrimSpace(line), "locals") && strings.Contains(line, "{") {
+			start = i
+			braceDepth = strings.Count(line, "{") - strings.Count(line, "}")
+			if braceDepth == 0 { // single line locals { }
+				break
+			}
+			continue
+		}
+		if start != -1 {
+			braceDepth += strings.Count(line, "{") - strings.Count(line, "}")
+			if braceDepth == 0 { // end of block
+				end := i
+				localsBlock := strings.Join(lines[start:end+1], "\n")
+				innerLines := lines[start+1 : end]
+				matches := make([][]string, 0)
+				currentKey := ""
+				var currentValLines []string
+				flush := func() {
+					if currentKey != "" {
+						val := strings.TrimSpace(strings.Join(currentValLines, "\n"))
+						matches = append(matches, []string{currentKey, val})
+						currentKey = ""
+						currentValLines = nil
+					}
+				}
+				for _, l := range innerLines {
+					trimmed := strings.TrimSpace(l)
+					if trimmed == "" {
+						continue
+					}
+					// detect new key = value line
+					if eq := strings.Index(trimmed, "="); eq > 0 {
+						// heuristic: treat as new key if currentKey empty OR line starts with an identifier
+						left := strings.TrimSpace(trimmed[:eq])
+						if regexp.MustCompile(`^[A-Za-z0-9_]+$`).MatchString(left) {
+							// flush previous
+							flush()
+							currentKey = left
+							currentValLines = []string{strings.TrimSpace(trimmed[eq+1:])}
+							continue
+						}
+					}
+					// continuation of previous value
+					if currentKey != "" {
+						currentValLines = append(currentValLines, trimmed)
+					}
+				}
+				flush()
+				return localsBlock, matches
+			}
+		}
 	}
-
-	// Use regex to find the key-value pairs in the locals block
-	kvre := regexp.MustCompile(`(.*[^=])=(.*(?:(:?\n.*[^\]])*])*)`)
-	matches := kvre.FindAllStringSubmatch(locals, -1)
-
-	// Clean up the matches a little
-	for i, match := range matches {
-		matches[i][1] = strings.Trim(match[1], " \"")
-		matches[i][2] = strings.Trim(match[2], " \"")
-	}
-
-	return matches
+	return "", make([][]string, 0)
 }
 
 // Check if the HCL file has an include block and return the included file path
 func getIncludedFilePath(contents string, currentFilePath string) string {
 	// Use pre-compiled regex for better performance
 	matches := includeRegex.FindStringSubmatch(contents)
-	
+
 	if len(matches) > 1 {
 		filename := matches[1]
 		// Walk up the directory tree to find the file
@@ -132,7 +201,7 @@ func getIncludedFilePath(contents string, currentFilePath string) string {
 			dir = parentDir
 		}
 	}
-	
+
 	return ""
 }
 
@@ -140,20 +209,20 @@ func getIncludedFilePath(contents string, currentFilePath string) string {
 // visitedFiles tracks files we've already processed to prevent circular includes
 func getInputsFromIncludedFile(includedFilePath string, visitedFiles map[string]bool) (status.Inputs, error) {
 	var inputs status.Inputs
-	
+
 	if includedFilePath == "" {
 		return inputs, nil
 	}
-	
+
 	// Check for circular includes
 	if visitedFiles[includedFilePath] {
 		log.Printf("Circular include detected for file: %s\n", includedFilePath)
 		return inputs, fmt.Errorf("circular include detected for file: %s", includedFilePath)
 	}
-	
+
 	// Mark this file as visited
 	visitedFiles[includedFilePath] = true
-	
+
 	// Read the included file and parse its inputs
 	hclFile := HCLFile{Path: includedFilePath}
 	return hclFile.getInputsFromFileWithVisited(visitedFiles)
@@ -165,18 +234,29 @@ func getInputsFromIncludedFile(includedFilePath string, visitedFiles map[string]
 // Then, they are referred to as local.key in the configuration
 // This function replaces the locals with their values
 func replaceLocals(contents string) string {
-	matches := getLocalsBlock(contents)
-
-	// Replace the locals with their values
-	for _, match := range matches {
-		key := strings.Trim(match[1], " ")
-		value := strings.Trim(match[2], " ")
-
-		contents = strings.ReplaceAll(contents, key, value)
-
+	// Obtain the locals block and individual key/value pairs
+	localsBlock, matches := getLocalsBlock(contents)
+	if len(matches) == 0 {
+		return contents // nothing to do
 	}
 
-    return contents
+	// Remove the entire locals block – we will inline the references
+	if localsBlock != "" {
+		contents = strings.Replace(contents, localsBlock, "", 1)
+	}
+
+	// For each local, replace occurrences of local.<key> ONLY (do not replace bare key names)
+	for _, m := range matches {
+		if len(m) < 2 { continue }
+		key := m[0]
+		value := m[1]
+		trimmed := strings.TrimSpace(value)
+		if !(strings.HasPrefix(trimmed, `"`) || strings.HasPrefix(trimmed, "[") || strings.HasPrefix(trimmed, "{") || trimmed == "true" || trimmed == "false" || regexp.MustCompile(`^[0-9]+$`).MatchString(trimmed)) {
+			value = fmt.Sprintf("\"%s\"", trimmed)
+		}
+		contents = strings.ReplaceAll(contents, fmt.Sprintf("local.%s", key), value)
+	}
+	return contents
 }
 
 // Given an HCL file, return the inputs
@@ -187,121 +267,161 @@ func (h *HCLFile) GetInputsFromFile() (status.Inputs, error) {
 	return h.getInputsFromFileWithVisited(visitedFiles)
 }
 
-// Internal function that tracks visited files to prevent circular includes
+// Internal function that tracks visited files to prevent circular includes and performs parsing
 func (h *HCLFile) getInputsFromFileWithVisited(visitedFiles map[string]bool) (status.Inputs, error) {
-
 	var inputs status.Inputs
 
-	viper.SetConfigType("hcl")
-	viper.SetConfigFile(h.Path)
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Config file not found;
-			log.Fatalf(`GetInputsFromFile: config file not found: %s`, h.Path)
-			return inputs, err
-		} else if _, ok := err.(viper.ConfigParseError); ok {
-			// the viper library can't parse the "locals". Here's a workaround
-			// read in the file contents and replace the locals with their values
-			// then write the file to a temporary location and read it in
-			// again
+    // Helper: parse a file path into inputs using viper with locals replacement fallback
+	// Returns a generic map[string]interface{} representing the 'inputs' object with all cty.Value converted
+	parsePath := func(filePath string) (map[string]interface{}, error) {
+        v := viper.New()
+        v.SetConfigType("hcl")
+        v.SetConfigFile(filePath)
+        if err := v.ReadInConfig(); err != nil {
+            if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+                return nil, fmt.Errorf("config not found: %s", filePath)
+            }
+            // attempt locals replacement fallback
+            contents, rerr := afero.ReadFile(fs, filePath)
+            if rerr != nil { return nil, fmt.Errorf("fallback read error: %w", rerr) }
+            contents = []byte(replaceLocals(string(contents)))
+            tempPath := "/tmp/" + path.Base(filePath)
+            if werr := afero.WriteFile(fs, tempPath, contents, 0644); werr != nil { return nil, fmt.Errorf("fallback write error: %w", werr) }
+            v.SetConfigFile(tempPath)
+            if rerr2 := v.ReadInConfig(); rerr2 != nil {
+                // final fallback: native hcl parser
+                parser := hclparse.NewParser()
+                file, perr := parser.ParseHCL(contents, filePath)
+                if perr != nil { return nil, perr }
+                attrs, _ := file.Body.JustAttributes()
+                if attr, ok := attrs["inputs"]; ok {
+                    val, diag := attr.Expr.Value(&hcl.EvalContext{})
+                    if diag.HasErrors() { return nil, fmt.Errorf("eval diagnostics: %s", diag.Error()) }
+                    if val.Type().IsObjectType() {
+						obj := make(map[string]interface{})
+						for k, v := range val.AsValueMap() { obj[k] = ctyToInterface(v) }
+						return obj, nil
+                    }
+                }
+                return nil, nil
+            }
+        }
+        raw := v.Get("inputs")
+        if raw == nil { return nil, nil }
+        switch typed := raw.(type) {
+        case []map[string]interface{}:
+            if len(typed) > 0 { return typed[0], nil }
+            return nil, nil
+        case map[string]interface{}:
+            return typed, nil
+        default:
+            return nil, fmt.Errorf("unsupported inputs structure: %T", raw)
+        }
+    }
 
-			// read in the file contents
-			contents, err := afero.ReadFile(fs, h.Path)
-			if err != nil {
-				log.Fatalf(`GetInputsFromFile: unable to read config file: %s`, h.Path)
-				return inputs, err
-			}
-			// replace the locals with their values
-			contents = []byte(replaceLocals(string(contents)))
-			// write the file to a temporary location and read it in again
-			tempPath := "/tmp/" + path.Base(h.Path)
-			err = afero.WriteFile(fs, tempPath, contents, 0644)
-			if err != nil {
-				log.Fatalf(`GetInputsFromFile: unable to write config file: %s`, h.Path)
-				return inputs, err
-			}
-			viper.SetConfigFile(tempPath)
-			viper.ReadInConfig()
-		} else {
-			// Config file was found but another error was produced
-			log.Fatalf(`GetInputsFromFile: config file found but another error was produced: %s`, h.Path)
-			return inputs, err
-		}
-	}
+    top, err := parsePath(h.Path)
+    if err != nil {
+        // Non-fatal; just log and continue
+        log.Printf("GetInputsFromFile: parse error for %s: %v", h.Path, err)
+    }
 
-	// Check if the inputs section exists before processing
-	rawInputs := viper.Get("inputs")
-	if rawInputs == nil {
-		// No inputs section found directly in this file
-		// Check if there's an include block that references a parent file
-		contents, err := afero.ReadFile(fs, h.Path)
-		if err != nil {
-			log.Printf("Unable to read file to check for includes: %s\n", h.Path)
-			return inputs, nil
-		}
-		
-		includedFilePath := getIncludedFilePath(string(contents), h.Path)
-		if includedFilePath != "" {
-			log.Printf("File %s includes %s, reading inputs from parent\n", h.Path, includedFilePath)
-			// Read inputs from the included file with circular include protection
-			parentInputs, err := getInputsFromIncludedFile(includedFilePath, visitedFiles)
-			if err != nil {
-				log.Printf("Error reading inputs from included file %s: %v\n", includedFilePath, err)
-				return inputs, nil
-			}
-			return parentInputs, nil
-		}
-		
-		// No inputs section and no include found
-		log.Printf("No inputs section found in file: %s\n", h.Path)
-		return inputs, nil
-	}
-
-	// Safely type assert the inputs
-	raw, ok := rawInputs.([]map[string]interface{})
-	if !ok {
-		log.Printf("Invalid inputs format in file: %s\n", h.Path)
-		return inputs, fmt.Errorf("inputs section is not in expected format")
-	}
-
-	if len(raw) == 0 {
-		// Empty inputs section, return empty inputs
-		return inputs, nil
-	}
-
-	for key, input := range raw[0] {
-		switch key {
-			case "private_repositories":
-				repoList := input.([]map[string]interface{})
-				repos, err := getRepositoryMap(repoList)
-				if err != nil {
-					log.Fatalf("Error in getRepositoryMap: %s", err)
-					return inputs, err
+	if top == nil {
+		// Attempt include-based parent resolution first
+		contents, rerr := afero.ReadFile(fs, h.Path)
+		if rerr == nil {
+			included := getIncludedFilePath(string(contents), h.Path)
+			if included != "" {
+				parentInputs, ierr := getInputsFromIncludedFile(included, visitedFiles)
+				if ierr == nil && (len(parentInputs.PrivateRepositories) > 0 || len(parentInputs.PublicRepositories) > 0 || len(parentInputs.DefaultRepositoryTeamPermissions) > 0) {
+					return parentInputs, nil
 				}
-				inputs.PrivateRepositories = repos
-			case "public_repositories":
-				repoList := input.([]map[string]interface{})
-				repos, err := getRepositoryMap(repoList)
-				if err != nil {
-					log.Fatalf("Error in getRepositoryMap: %s", err)
-					return inputs, err
+			}
+		}
+		// Fallback: walk for root.hcl/providers.hcl upward
+		searchDir := path.Dir(h.Path)
+		for i := 0; i < 8 && searchDir != "/"; i++ { // limit depth
+			for _, candidate := range []string{"root.hcl", "providers.hcl"} {
+				candidatePath := path.Join(searchDir, candidate)
+				if _, statErr := fs.Stat(candidatePath); statErr == nil {
+					parentTop, perr := parsePath(candidatePath)
+					if perr == nil && parentTop != nil {
+						top = parentTop
+						break
+					}
 				}
-				inputs.PublicRepositories = repos
-			case "default_repository_team_permissions":
-				permissions := make(map[string]string)
-				inputArr := input.([]map[string]interface{})
-				drtpsArr := inputArr[0]
-				for permission, value := range drtpsArr {
-					permissions[permission] = value.(string)
-				}
-				inputs.DefaultRepositoryTeamPermissions = permissions
-			default:
-				log.Fatalf("Unknown input: %s", key)
-				return inputs, nil
+			}
+			if top != nil { break }
+			searchDir = path.Dir(searchDir)
 		}
 	}
 
-	return inputs, nil
+    if top == nil { return inputs, nil }
+
+    for key, input := range top {
+        switch key {
+        case "private_repositories":
+            repos, rerr := getRepositoryMap(input)
+            if rerr != nil { log.Printf("private_repositories parse error in %s: %v", h.Path, rerr); continue }
+            inputs.PrivateRepositories = repos
+        case "public_repositories":
+            repos, rerr := getRepositoryMap(input)
+            if rerr != nil { log.Printf("public_repositories parse error in %s: %v", h.Path, rerr); continue }
+            inputs.PublicRepositories = repos
+        case "default_repository_team_permissions":
+            permissions := make(map[string]string)
+            switch typed := input.(type) {
+            case []map[string]interface{}:
+                if len(typed) > 0 {
+                    for permission, value := range typed[0] {
+                        if s, ok := value.(string); ok { permissions[permission] = s }
+                    }
+                }
+            case map[string]interface{}:
+                for permission, value := range typed {
+                    if s, ok := value.(string); ok { permissions[permission] = s }
+                }
+            }
+            inputs.DefaultRepositoryTeamPermissions = permissions
+        default:
+            // ignore forward-compatible keys
+        }
+    }
+    return inputs, nil
+}
+
+// Recursively convert cty.Value into native Go types (map[string]interface{}, []interface{}, primitives)
+func ctyToInterface(v cty.Value) interface{} {
+	if !v.IsKnown() || v.IsNull() {
+		return nil
+	}
+	t := v.Type()
+	switch {
+	case t.IsObjectType() || t.IsMapType():
+		result := make(map[string]interface{})
+		for k, cv := range v.AsValueMap() {
+			result[k] = ctyToInterface(cv)
+		}
+		return result
+	case t.IsTupleType() || t.IsListType() || t.IsSetType():
+		var list []interface{}
+		it := v.ElementIterator()
+		for it.Next() {
+			_, elem := it.Element()
+			list = append(list, ctyToInterface(elem))
+		}
+		return list
+	case t == cty.String:
+		return v.AsString()
+	case t == cty.Bool:
+		return v.True() // AsBool is ambiguous? Use v.True() only if value is true else false via v.False when appropriate
+	default:
+		// Attempt numeric
+		if t == cty.Number {
+			f, _ := v.AsBigFloat().Float64()
+			return f
+		}
+	}
+	return v.GoString()
 }
 
 
@@ -316,17 +436,22 @@ func (h *HCLFile) GetLocalsMap() map[string]string {
 	// If the path is set, read the file and return the locals
 	content, err := afero.ReadFile(fs, h.Path)
 	if err != nil {
-		log.Fatalf(`GetLocalsMap: unable to read config file: %s`, h.Path)
+		log.Printf(`GetLocalsMap: unable to read config file: %s`, h.Path)
 		return make(map[string]string)
 	}
 
-	macthes := getLocalsBlock(string(content))
+	_, macthes := getLocalsBlock(string(content))
 	locals := make(map[string]string)
 	for _, match := range macthes {
-		locals[match[1]] = match[2]
+		if len(match) >= 2 {
+			// Trim any surrounding single or double quotes from the value
+			value := strings.Trim(match[1], "'\"")
+			locals[match[0]] = value
+		}
 	}
 	return locals
 }
+
 
 func NewTerragruntPlanFile(name string, modulePath string, moduleDir string, outputFilePath string) (*PlanFile, error) {
 	// If there is a file conflict with the output file, create a new file with a "copy_" prefix

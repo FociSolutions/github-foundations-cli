@@ -300,3 +300,46 @@ func (suite *TerragruntArchiveTestSuite) TestPlanFileGetStateExplorerUnsupported
 
 	fs.Remove(fileName)
 }
+
+// New test to validate parsing of inputs with a locals block and local references
+func TestGetInputsFromFile_WithLocals(t *testing.T) {
+		fs = afero.NewMemMapFs()
+		fileName := "terragrunt.hcl"
+		contents := `
+locals {
+	repo_description = "Example repository"
+}
+
+inputs = {
+	private_repositories = {
+		sample = {
+			description = local.repo_description
+			default_branch = "main"
+			advance_security = true
+			has_vulnerability_alerts = true
+			topics = ["a", "b"]
+			homepage = "https://example.com"
+			delete_head_on_merge = true
+			requires_web_commit_signing = true
+			dependabot_security_updates = true
+			protected_branches = ["main"]
+			allow_auto_merge = false
+		}
+	}
+	public_repositories = {}
+}
+`
+		err := afero.WriteFile(fs, fileName, []byte(contents), 0644)
+		require.NoError(t, err)
+
+		hclFile := HCLFile{Path: fileName}
+		inputs, err := hclFile.GetInputsFromFile()
+		require.NoError(t, err)
+		if len(inputs.PrivateRepositories) != 1 {
+				t.Fatalf("expected 1 private repo, got %d", len(inputs.PrivateRepositories))
+		}
+		repo := inputs.PrivateRepositories["sample"]
+		if repo.Description != "Example repository" {
+				t.Fatalf("expected description to be 'Example repository', got %s", repo.Description)
+		}
+}

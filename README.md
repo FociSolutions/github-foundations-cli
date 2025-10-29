@@ -101,6 +101,13 @@ Where `<resource>` is one of the following:
 - repos:
     - `--ghas`, `-g`    List repositories with GHAS enabled.
 
+
+Notes:
+
+- The `repos` command parses `repositories/terragrunt.hcl` files. It now supports Terragrunt `locals {}` blocks and replacements of `local.<key>` references inside the `inputs` object. If parsing with Viper fails, the tool falls back to native HCL parsing.
+- Logging during `list repos` is suppressed to ensure clean machine-readable output (e.g. `['org/repo1', 'org/repo2']` or `[]`).
+
+
 ### Help
 
 Display help for the tool.

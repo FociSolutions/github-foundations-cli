@@ -29,11 +29,11 @@ func FindManagedOrgSlugs(orgsDir string) ([]string, error) {
 
 	// Look for both providers.hcl and root.hcl files for backward compatibility
 	// and to support the new Terragrunt naming convention
-	orgFiles, err := findConfigFiles(orgsDir, "providers.hcl", "root.hcl")
-	if err != nil {
-		log.Fatalf("Error in findOrgFiles: %s", err)
+    orgFiles, err := findConfigFiles(orgsDir, "providers.hcl", "root.hcl")
+    if err != nil {
+        log.Printf("FindManagedOrgSlugs: error finding org files: %v", err)
         return make([]string, 0), err
-	}
+    }
 
 	// Walk the orgFiles and get all the providers.hcl and root.hcl files
 	var orgs []string
@@ -92,21 +92,19 @@ func findConfigFiles(rootDir string, fileNamePattern ...string) ([]string, error
 
 // List all of the repositories managed by the tool
 func FindManagedRepos(reposDir string) (status.OrgSet, error) {
-	files, err := findConfigFiles(reposDir)
-
-	orgFiles := findOrgsFromFilenames(files)
-
-	if err != nil {
-		log.Fatalf("Error in findOrgFiles: %s", err)
+    files, err := findConfigFiles(reposDir)
+    if err != nil {
+        log.Printf("FindManagedRepos: error finding repo files: %v", err)
         return status.OrgSet{}, err
-	}
+    }
+    orgFiles := findOrgsFromFilenames(files)
 
 	// Get the absolute path of the root directory
-	absRootPath, err := filepath.Abs(reposDir)
-	if err != nil {
-		log.Fatalf("Error in filepath.Abs: %s", err)
+    absRootPath, err := filepath.Abs(reposDir)
+    if err != nil {
+        log.Printf("FindManagedRepos: filepath.Abs error: %v", err)
         return status.OrgSet{}, err
-	}
+    }
 
 	var orgSet status.OrgSet
 	orgSet.OrgProjectSets = make(map[string]status.OrgProjectSet)
@@ -138,11 +136,11 @@ func FindManagedRepos(reposDir string) (status.OrgSet, error) {
 					Path: file,
 				}
 
-				inputs, err := hclFile.GetInputsFromFile()
-				if err != nil {
-					log.Fatalf(`Error in getInputsFromFile: %s`, err)
-					return orgSet, err
-				}
+                inputs, err := hclFile.GetInputsFromFile()
+                if err != nil {
+                    log.Printf("FindManagedRepos: skipping file %s due to parse error: %v", file, err)
+                    continue
+                }
 
 				log.Printf("Repository Set has %d private repositories and %d public repositories", len(inputs.PrivateRepositories), len(inputs.PublicRepositories))
 				var repoSet githubfoundations.RepositorySetInput
