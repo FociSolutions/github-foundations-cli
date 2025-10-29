@@ -22,6 +22,12 @@ import (
 
 var fs = afero.NewOsFs()
 
+// Compile regex patterns once at package initialization for better performance
+var (
+	// Pattern to match: include "name" { path = find_in_parent_folders("filename") }
+	includeRegex = regexp.MustCompile(`include\s+["']?\w+["']?\s*{\s*path\s*=\s*find_in_parent_folders\s*\(\s*["']([^"']+)["']\s*\)`)
+)
+
 // command creation function for mocking
 var newCommandExecutor = func(name string, args ...string) types.ICommandExecutor {
 	return &types.CommandExecutor{
@@ -106,10 +112,8 @@ func getLocalsBlock(contents string) [][]string {
 
 // Check if the HCL file has an include block and return the included file path
 func getIncludedFilePath(contents string, currentFilePath string) string {
-	// Look for include block with find_in_parent_folders
-	// Pattern: include "name" { path = find_in_parent_folders("filename") }
-	includeRe := regexp.MustCompile(`include\s+["']?\w+["']?\s*{\s*path\s*=\s*find_in_parent_folders\s*\(\s*["']([^"']+)["']\s*\)`)
-	matches := includeRe.FindStringSubmatch(contents)
+	// Use pre-compiled regex for better performance
+	matches := includeRegex.FindStringSubmatch(contents)
 	
 	if len(matches) > 1 {
 		filename := matches[1]
@@ -133,16 +137,26 @@ func getIncludedFilePath(contents string, currentFilePath string) string {
 }
 
 // Read inputs from a parent file referenced by include
-func getInputsFromIncludedFile(includedFilePath string) (status.Inputs, error) {
+// visitedFiles tracks files we've already processed to prevent circular includes
+func getInputsFromIncludedFile(includedFilePath string, visitedFiles map[string]bool) (status.Inputs, error) {
 	var inputs status.Inputs
 	
 	if includedFilePath == "" {
 		return inputs, nil
 	}
 	
+	// Check for circular includes
+	if visitedFiles[includedFilePath] {
+		log.Printf("Circular include detected for file: %s\n", includedFilePath)
+		return inputs, fmt.Errorf("circular include detected for file: %s", includedFilePath)
+	}
+	
+	// Mark this file as visited
+	visitedFiles[includedFilePath] = true
+	
 	// Read the included file and parse its inputs
 	hclFile := HCLFile{Path: includedFilePath}
-	return hclFile.GetInputsFromFile()
+	return hclFile.getInputsFromFileWithVisited(visitedFiles)
 }
 
 
@@ -167,6 +181,14 @@ func replaceLocals(contents string) string {
 
 // Given an HCL file, return the inputs
 func (h *HCLFile) GetInputsFromFile() (status.Inputs, error) {
+	// Initialize visited files map to prevent circular includes
+	visitedFiles := make(map[string]bool)
+	visitedFiles[h.Path] = true
+	return h.getInputsFromFileWithVisited(visitedFiles)
+}
+
+// Internal function that tracks visited files to prevent circular includes
+func (h *HCLFile) getInputsFromFileWithVisited(visitedFiles map[string]bool) (status.Inputs, error) {
 
 	var inputs status.Inputs
 
@@ -221,8 +243,8 @@ func (h *HCLFile) GetInputsFromFile() (status.Inputs, error) {
 		includedFilePath := getIncludedFilePath(string(contents), h.Path)
 		if includedFilePath != "" {
 			log.Printf("File %s includes %s, reading inputs from parent\n", h.Path, includedFilePath)
-			// Read inputs from the included file
-			parentInputs, err := getInputsFromIncludedFile(includedFilePath)
+			// Read inputs from the included file with circular include protection
+			parentInputs, err := getInputsFromIncludedFile(includedFilePath, visitedFiles)
 			if err != nil {
 				log.Printf("Error reading inputs from included file %s: %v\n", includedFilePath, err)
 				return inputs, nil
