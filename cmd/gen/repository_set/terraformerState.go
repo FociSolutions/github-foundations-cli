@@ -1,20 +1,20 @@
 package repositoryset
 
 import (
-	"gh_foundations/internal/pkg/functions"
-	"log"
-	"os"
-
-	"github.com/tidwall/gjson"
-
-	githubfoundations "gh_foundations/internal/pkg/types/github_foundations"
+    "os"
+    "log"
+    "gh_foundations/internal/pkg/functions"
+    githubfoundations "gh_foundations/internal/pkg/types/github_foundations"
+    "github.com/tidwall/gjson"
 )
 
-func genFromTerraformerFile(stateFile string) *githubfoundations.RepositorySetInput {
-	stateBytes, err := os.ReadFile(stateFile)
-	if err != nil {
-		log.Fatalf("Error reading state file %s. %s", stateFile, err.Error())
-	}
+
+func genFromTerraformerFile(stateFile string) (*githubfoundations.RepositorySetInput, error) {
+    stateBytes, err := os.ReadFile(stateFile)
+    if err != nil {
+        log.Printf("terraformerState: error reading state file %s: %v", stateFile, err)
+        return nil, err
+    }
 	result := gjson.Parse(string(stateBytes))
 
 	list := result.Get("modules.0.resources").Map()
@@ -51,5 +51,5 @@ func genFromTerraformerFile(stateFile string) *githubfoundations.RepositorySetIn
 		repository.UserPermissions = repositoryUserPermissions[repository.Name]
 	}
 
-	return repositorySets
+	return repositorySets, nil
 }

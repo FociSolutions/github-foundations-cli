@@ -29,7 +29,12 @@ var GenRepositorySetCmd = &cobra.Command{
 		zone.NewGlobal()
 		var repositorySet *githubfoundations.RepositorySetInput
 		if terraformerStateFile != "" {
-			repositorySet = genFromTerraformerFile(terraformerStateFile)
+			var err error
+			repositorySet, err = genFromTerraformerFile(terraformerStateFile)
+			if err != nil {
+				fmt.Println("Error reading terraformer state file:", err)
+				os.Exit(1)
+			}
 		} else {
 			var err error
 			repositorySet, err = runInteractive()
